@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "m365-nas-backup"
+version = "0.1.0a1"
+description = "Versioned Exchange Online backup for QNAP"
+requires-python = ">=3.12"
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1", "msal>=1.31,<2", "cryptography>=44", "filelock>=3.17,<4"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "ruff>=0.9,<1", "pip-audit>=2.8,<3"]
+
+[project.scripts]
+m365-backup = "m365_nas_backup.cli:main"
+
+[tool.setuptools.package-data]
+m365_nas_backup = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
