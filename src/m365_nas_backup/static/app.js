@@ -61,7 +61,7 @@ function review(title,body,action) {$("review-title").textContent=title;$("revie
 function bind(id,event,action) {$(id).addEventListener(event, e=>{Promise.resolve(action(e)).catch(err=>message(err.message));});}
 bind("login-form","submit",async e=>{e.preventDefault();token=$("token").value.trim();await loadSettings();await refresh();$("token").value="";$("login").hidden=true;$("console").hidden=false;});
 bind("logout","click",lock);
-document.querySelectorAll("[data-tab]").forEach(button=>button.addEventListener("click",async()=>{try{document.querySelectorAll(".tab").forEach(s=>s.hidden=s.id!==button.dataset.tab);document.querySelectorAll("[data-tab]").forEach(b=>b.removeAttribute("aria-current"));button.setAttribute("aria-current","page");if(button.dataset.tab==="recovery")await loadSnapshots();if(button.dataset.tab==="settings")await loadSettings();}catch(err){message(err.message);}}));
+document.querySelectorAll("[data-tab]").forEach(button=>button.addEventListener("click",async()=>{try{if(button.dataset.tab==="recovery")await loadSnapshots();if(button.dataset.tab==="settings")await loadSettings();document.querySelectorAll(".tab").forEach(s=>s.hidden=s.id!==button.dataset.tab);document.querySelectorAll("[data-tab]").forEach(b=>b.removeAttribute("aria-current"));button.setAttribute("aria-current","page");}catch(err){message(err.message);}}));
 bind("backup-now","click",async()=>{await api("/api/backup",{method:"POST",body:"{}"});message("Backup started.");await refresh();});
 bind("settings-form","submit",async e=>{
   e.preventDefault(); const f=e.currentTarget; const next={...settings};
