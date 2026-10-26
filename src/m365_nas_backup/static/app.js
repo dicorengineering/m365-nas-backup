@@ -41,8 +41,11 @@ async function loadSettings() {
   $("retention-days").disabled=settings.retention.days===null;
   $("destination").innerHTML=settings.mailboxes.map(m=>"<option value='"+escapeHtml(m.user)+"'>"+escapeHtml(m.label||m.user)+"</option>").join("");
 }
-async function loadSnapshots() {
-  snapshots=await api("/api/snapshots?limit=1000"); const previous=$("snapshot").value;
+async function loadSnapshots(reset=true) {
+  const previous=$("snapshot").value;
+  const page=await api("/api/snapshots?limit=1000&offset="+(reset?0:snapshots.length));
+  snapshots=reset?page:[...snapshots,...page.filter(s=>!snapshots.some(existing=>existing.id===s.id))];
+  $("older-snapshots").disabled=page.length<1000;
   $("snapshot").innerHTML="<option value=''>Choose a backup</option>"+snapshots.map(s=>"<option value='"+s.id+"'>"+escapeHtml(s.mailbox+" · "+date(s.completed)+" · "+s.item_count+" items")+"</option>").join("");
   $("snapshot").value=previous;
 }
@@ -67,11 +70,13 @@ bind("settings-form","submit",async e=>{
   for(const name of ["scheduler_enabled","restore_enabled"])next[name]=f.elements[name].checked;
   const entered=$("mailboxes").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   next.mailboxes=entered.map(user=>({...settings.mailboxes.find(m=>m.user.toLowerCase()===user.toLowerCase()),user,enabled:true}));
+  next.mailboxes.push(...settings.mailboxes.filter(m=>!m.enabled&&!entered.some(user=>user.toLowerCase()===m.user.toLowerCase())));
   next.retention={days:$("retention-mode").value==="forever"?null:Number($("retention-days").value),minimum_snapshots:Number($("minimum-snapshots").value),automatic_pruning:$("automatic-pruning").checked};
   const save=async()=>{settings=await api("/api/settings",{method:"PUT",body:JSON.stringify(next)});message("Settings saved.");await loadSettings();await refresh();};
   if(next.retention.automatic_pruning && (!settings.retention.automatic_pruning || (next.retention.days??Infinity)<(settings.retention.days??Infinity) || next.retention.minimum_snapshots<settings.retention.minimum_snapshots))review("Apply automatic retention?","Expired recovery points can be permanently removed after a successful backup. The configured minimum number of snapshots will remain.",save);else await save();
 });
 bind("retention-mode","change",()=>{$("retention-days").disabled=$("retention-mode").value==="forever";});
+bind("older-snapshots","click",()=>loadSnapshots(false));
 bind("snapshot","change",async()=>{selected.clear();offset=0;await loadItems();});
 bind("search","change",async()=>{offset=0;await loadItems();});
 bind("previous","click",async()=>{offset=Math.max(0,offset-100);await loadItems();});

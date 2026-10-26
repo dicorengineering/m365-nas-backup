@@ -41,7 +41,7 @@ but each recovery point has its own encrypted manifest.
 
 ## Browse and restore email
 
-1. In **Recovery**, choose the source mailbox/date from **Recovery point**.
+1. In **Recovery**, choose the source mailbox/date from **Recovery point**. Use **Load older recovery points** to access history beyond the first 1,000 points.
 2. Search by subject/folder. Body search is not implemented.
 3. Select messages; selection persists while paging/searching within the same point.
 4. Choose a destination from the explicitly configured mailboxes.

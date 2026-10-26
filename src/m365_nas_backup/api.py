@@ -202,9 +202,14 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
         return runner.start("backup", engine.backup)
 
     @app.get("/api/snapshots", dependencies=[Depends(admin)])
-    def snapshots(mailbox: str | None = None, limit: int = Query(200, ge=1, le=1000)):
-        # Manifest object hashes are internal.
-        return [{k: v for k, v in s.items() if k != "manifest"} for s in repo.snapshots(mailbox)[:limit]]
+    def snapshots(
+        mailbox: str | None = None, limit: int = Query(200, ge=1, le=1000), offset: int = Query(0, ge=0)
+    ):
+        # Paged access must include old retained points, even beyond the newest 1,000.
+        return [
+            {k: v for k, v in s.items() if k != "manifest"}
+            for s in repo.snapshots(mailbox)[offset : offset + limit]
+        ]
 
     @app.get("/api/snapshots/{snapshot_id}/items", dependencies=[Depends(admin)])
     def items(

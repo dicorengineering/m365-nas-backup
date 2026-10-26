@@ -17,7 +17,7 @@
 </section>
 <section id="recovery" class="tab" hidden><h1>Recover email</h1><p>Choose a completed backup, then restore selected messages into a new recovery folder.</p>
 <div class="form-grid"><label>Recovery point<select id="snapshot"><option value="">Choose a backup</option></select></label><label>Find messages<input id="search" type="search" placeholder="Subject or folder"></label></div>
-<div class="actions"><button id="verify" class="secondary">Verify this backup</button><label>Destination mailbox<select id="destination"></select></label><button id="preview-restore">Review restore</button></div>
+<div class="actions"><button id="older-snapshots" class="secondary">Load older recovery points</button><button id="verify" class="secondary">Verify this backup</button><label>Destination mailbox<select id="destination"></select></label><button id="preview-restore">Review restore</button></div>
 <p id="item-count" class="hint">Choose a recovery point to browse its contents.</p>
 <div class="table-wrap"><table><thead><tr><th>Select</th><th>Subject</th><th>Folder</th><th>Modified</th></tr></thead><tbody id="item-rows"></tbody></table></div>
 <div class="actions"><button id="previous" class="secondary">Previous</button><button id="next" class="secondary">Next</button></div>

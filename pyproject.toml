@@ -7,7 +7,7 @@ name = "m365-nas-backup"
 version = "0.1.0a1"
 description = "Versioned Exchange Online backup for QNAP"
 requires-python = ">=3.12"
-dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1", "msal>=1.31,<2", "cryptography>=44", "filelock>=3.17,<4"]
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1", "msal>=1.31,<2", "cryptography>=44", "filelock>=4.2.4,<5"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "ruff>=0.9,<1", "pip-audit>=2.8,<3"]

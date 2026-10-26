@@ -25,6 +25,9 @@ jobs:
       - run: python -m ruff check .
       - run: python -m ruff format --check .
       - run: python -m pytest -q
+      - name: Audit runtime dependencies
+        if: matrix.python == '3.13'
+        run: python -m pip_audit -r requirements.txt --no-deps --disable-pip
       - run: node --check src/m365_nas_backup/static/app.js
       - run: shellcheck packaging/qnap/shared/service.sh
       - name: Exercise the browser console with fake mail

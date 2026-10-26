@@ -5,7 +5,9 @@ umask 077
 QPKG_NAME=M365Backup
 CONF=/etc/config/qpkg.conf
 QPKG_ROOT=$(/sbin/getcfg "$QPKG_NAME" Install_Path -f "$CONF")
-[ -n "$QPKG_ROOT" ] && [ -d "$QPKG_ROOT" ] || { echo "Package directory unavailable"; exit 1; }
+if [ -z "$QPKG_ROOT" ] || [ ! -d "$QPKG_ROOT" ]; then
+    echo "Package directory unavailable"; exit 1
+fi
 QPKG_ROOT=$(cd "$QPKG_ROOT" && pwd -P)
 CS_ROOT=$(/sbin/getcfg ContainerStation Install_Path -f "$CONF")
 DOCKER="$CS_ROOT/bin/docker"
@@ -48,7 +50,9 @@ network() {
     PORT=$(sed -n 's/^port=//p' "$STATE/network.conf" | head -n 1)
     case "$BIND" in ""|*[!0-9.]*) echo "Use an IPv4 bind address"; exit 1;; esac
     case "$PORT" in ""|*[!0-9]*) echo "Invalid web port"; exit 1;; esac
-    [ "$PORT" -ge 1024 ] && [ "$PORT" -le 65535 ] || { echo "Use a port from 1024 to 65535"; exit 1; }
+    if [ "$PORT" -lt 1024 ] || [ "$PORT" -gt 65535 ]; then
+        echo "Use a port from 1024 to 65535"; exit 1
+    fi
 }
 
 case "${1:-}" in

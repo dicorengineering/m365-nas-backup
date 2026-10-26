@@ -1,6 +1,6 @@
 # Restart checkpoint
 
-Updated: 2026-10-25. Status: core tests passing; 45 tests pass; packaging/browser CI ready for first run.
+Updated: 2026-10-25. Status: core tests passing; 46 tests pass; packaging/browser CI ready for first run.
 
 ## Authorized outcome
 Build a universal Exchange Online backup app with adjustable history, restore research,
@@ -16,10 +16,10 @@ managed by App Center with Container Station as its required runtime.
 - Separate backup/restore certificates, private API/UI, scheduler and Kuma monitoring.
 - Fixed authentication-initialization failures so current snapshots cannot mask failed attempts.
 - Consistent verified second-copy bundle export (keys excluded).
-- 45 local tests passed on Python 3.13. Ruff passed before latest CI/docs additions.
+- 46 local tests passed on Python 3.13. Ruff passed before latest CI/docs additions.
 - UI, QNAP wrapper, Dockerfile/Compose, runtime pins and documentation in progress.
 - No real credentials, mail data or NAS modifications.
-- Initial f34c2bb is pushed; subsequent work needs checkpoint commit/push.
+- decfb42 is pushed. First CI failed only QNAP shell lint; fixed. filelock updated to 4.2.4 after audit; 46 tests and dependency audit now pass. Older recovery-point pagination added.
 
 ## Next actions
 1. Docs are complete. Ruff/pytest/node syntax checks passed; inspect first CI run.
