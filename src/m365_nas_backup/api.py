@@ -1,4 +1,5 @@
 """Private administration API and status checks; all data routes require tokens."""
+
 import asyncio
 import hmac
 import threading
@@ -65,6 +66,7 @@ class Runner:
             finally:
                 with self.guard:
                     self.busy = False
+
         self.pool.submit(work)
         return {"accepted": True, "operation": name}
 
@@ -88,6 +90,7 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
                         runner.start("backup", engine.backup)
                         next_run = time.monotonic() + settings.interval_minutes * 60
                     await asyncio.sleep(10)
+
             task = asyncio.create_task(scheduler())
             try:
                 yield
@@ -99,8 +102,14 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
                     pass
                 runner.pool.shutdown(wait=False, cancel_futures=True)
 
-    app = FastAPI(title="M365 NAS Backup", version=__version__, lifespan=lifespan,
-                  docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(
+        title="M365 NAS Backup",
+        version=__version__,
+        lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
@@ -112,13 +121,15 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
             if length < 0 or length > 1_048_576:
                 return JSONResponse({"detail": "A body length of at most 1 MiB is required"}, status_code=413)
         response = await call_next(request)
-        response.headers.update({
-            "Cache-Control": "no-store",
-            "X-Content-Type-Options": "nosniff",
-            "Referrer-Policy": "no-referrer",
-            "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; "
-                                       "img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
-        })
+        response.headers.update(
+            {
+                "Cache-Control": "no-store",
+                "X-Content-Type-Options": "nosniff",
+                "Referrer-Policy": "no-referrer",
+                "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; "
+                "img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+            }
+        )
         return response
 
     def authenticate(request: Request, allow_monitor=False):
@@ -180,8 +191,11 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
     def public_certificate(purpose: str):
         if purpose not in ("backup", "restore"):
             raise HTTPException(404)
-        return Response(config.secret(purpose + "-public.pem"), media_type="application/x-pem-file",
-                        headers={"Content-Disposition": f'attachment; filename="{purpose}-public.pem"'})
+        return Response(
+            config.secret(purpose + "-public.pem"),
+            media_type="application/x-pem-file",
+            headers={"Content-Disposition": f'attachment; filename="{purpose}-public.pem"'},
+        )
 
     @app.post("/api/backup", status_code=202, dependencies=[Depends(admin)])
     def backup():
@@ -193,8 +207,12 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
         return [{k: v for k, v in s.items() if k != "manifest"} for s in repo.snapshots(mailbox)[:limit]]
 
     @app.get("/api/snapshots/{snapshot_id}/items", dependencies=[Depends(admin)])
-    def items(snapshot_id: str, q: str = Query("", max_length=200), offset: int = Query(0, ge=0),
-              limit: int = Query(100, ge=1, le=200)):
+    def items(
+        snapshot_id: str,
+        q: str = Query("", max_length=200),
+        offset: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=200),
+    ):
         manifest = repo.manifest(snapshot_id)
         matches = []
         for fid, folder in manifest["folders"].items():
@@ -203,13 +221,21 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
                 subject = item.get("subject", "")
                 if q.casefold() not in (subject + " " + name).casefold():
                     continue
-                matches.append({
-                    "folder_id": fid, "item_id": iid, "folder": name, "subject": subject or "(No subject)",
-                    "modified": item["metadata"].get("lastModifiedDateTime", ""),
-                    "size": item["metadata"].get("size", 0),
-                })
-        return {"total": len(matches), "items": matches[offset:offset + limit],
-                "excluded_folders": manifest.get("excluded_folders", [])}
+                matches.append(
+                    {
+                        "folder_id": fid,
+                        "item_id": iid,
+                        "folder": name,
+                        "subject": subject or "(No subject)",
+                        "modified": item["metadata"].get("lastModifiedDateTime", ""),
+                        "size": item["metadata"].get("size", 0),
+                    }
+                )
+        return {
+            "total": len(matches),
+            "items": matches[offset : offset + limit],
+            "excluded_folders": manifest.get("excluded_folders", []),
+        }
 
     @app.post("/api/snapshots/{snapshot_id}/verify", status_code=202, dependencies=[Depends(admin)])
     def verify(snapshot_id: str):
@@ -225,7 +251,9 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
 
     @app.post("/api/restore/preview", dependencies=[Depends(admin)])
     def preview_restore(body: RestoreRequest):
-        return engine.restore_plan(body.snapshot_id, body.destination, [s.model_dump() for s in body.selections])
+        return engine.restore_plan(
+            body.snapshot_id, body.destination, [s.model_dump() for s in body.selections]
+        )
 
     @app.post("/api/restore", status_code=202, dependencies=[Depends(admin)])
     def restore(body: RestoreRequest):

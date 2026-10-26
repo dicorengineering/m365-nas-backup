@@ -1,4 +1,5 @@
 """Encrypted content-addressed objects and atomic, independently restorable snapshots."""
+
 import hashlib
 import json
 import os

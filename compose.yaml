@@ -1,0 +1,22 @@
+services:
+  backup:
+    build: .
+    image: m365-nas-backup:0.1.0-alpha.1
+    user: "10001:10001"
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - ./config:/config
+      - ./data:/data
+      - ./exports:/exports
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 2g
+    restart: unless-stopped
+    stop_grace_period: 60s

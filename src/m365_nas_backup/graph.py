@@ -1,4 +1,5 @@
 """Microsoft Graph v1.0 adapter. No EWS and no MIME-as-draft restore."""
+
 import base64
 import hashlib
 import re
@@ -70,8 +71,12 @@ class Graph:
         parts = urlsplit(url)
         expected_host = "outlook.office365.com" if import_upload else "graph.microsoft.com"
         if (
-            parts.scheme != "https" or parts.hostname != expected_host
-            or parts.port not in (None, 443) or parts.username or parts.password or parts.fragment
+            parts.scheme != "https"
+            or parts.hostname != expected_host
+            or parts.port not in (None, 443)
+            or parts.username
+            or parts.password
+            or parts.fragment
         ):
             raise ValueError("Refusing an unexpected Microsoft API URL")
         if import_upload:
@@ -91,17 +96,17 @@ class Graph:
                     raise UncertainWrite(0, "transport_result_unknown") from None
                 if attempt + 1 == attempts:
                     raise GraphError(0, "transport_failed") from None
-                self.sleep(2 ** attempt)
+                self.sleep(2**attempt)
                 continue
             if response.status_code in (429, 500, 502, 503, 504) and safe and attempt + 1 < attempts:
-                delay = response.headers.get("Retry-After", str(2 ** attempt))
+                delay = response.headers.get("Retry-After", str(2**attempt))
                 try:
                     seconds = float(delay)
                 except ValueError:
                     try:
                         seconds = (parsedate_to_datetime(delay) - datetime.now(UTC)).total_seconds()
                     except (ValueError, TypeError):
-                        seconds = 2 ** attempt
+                        seconds = 2**attempt
                 if seconds > 300:
                     raise GraphError(response.status_code, "retry_later")
                 self.sleep(max(0, seconds))
@@ -216,9 +221,11 @@ class Graph:
         session = self.request("POST", self.root(mailbox_id) + "/createImportSession", {})
         # Never attach the Graph access token to the preauthenticated import URL.
         result = self.request(
-            "POST", session["importUrl"],
+            "POST",
+            session["importUrl"],
             {"FolderId": folder_id, "Mode": "create", "Data": base64.b64encode(content).decode()},
-            safe=False, import_upload=True,
+            safe=False,
+            import_upload=True,
         )
         if not result.get("itemId"):
             raise UncertainWrite(200, "missing_imported_item_id")

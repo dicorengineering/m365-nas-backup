@@ -1,0 +1,76 @@
+name: Test and build QNAP alpha
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python: ['3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -r requirements.txt -e '.[dev]'
+      - run: python -m ruff check .
+      - run: python -m ruff format --check .
+      - run: python -m pytest -q
+      - run: node --check src/m365_nas_backup/static/app.js
+      - run: shellcheck packaging/qnap/shared/service.sh
+      - name: Exercise the browser console with fake mail
+        if: matrix.python == '3.13'
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+          python -m scripts.browser_smoke
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.python == '3.13'
+        with:
+          name: browser-preview
+          path: build/browser/
+          if-no-files-found: ignore
+          retention-days: 30
+  package:
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build portable container
+        run: docker build --tag m365-nas-backup:0.1.0-alpha.1 .
+      - name: Check container startup, authentication and persistence
+        run: python3 -m scripts.container_smoke
+      - name: Install verified QNAP Development Kit
+        run: |
+          curl --fail --location --retry 3 --output /tmp/qdk.deb https://github.com/qnap-dev/QDK/releases/download/v2.5.3/qdk_2.5.3_amd64.deb
+          printf '%s\n' '17b3841b7d4590a4ee025844ba583304b5e3c497d9fa8934d5175131d3908022  /tmp/qdk.deb' | sha256sum --check
+          sudo apt-get update -qq
+          sudo apt-get install -y /tmp/qdk.deb
+      - name: Bundle image and build QPKG
+        run: |
+          mkdir -p packaging/qnap/x86_64
+          printf '%s\n' 'linux/amd64' > packaging/qnap/x86_64/platform.txt
+          docker save m365-nas-backup:0.1.0-alpha.1 | gzip -1 > packaging/qnap/shared/image.tar.gz
+          (cd packaging/qnap/shared && sha256sum image.tar.gz > image.sha256)
+          chmod 750 packaging/qnap/shared/service.sh
+          qbuild --root packaging/qnap --build-arch x86_64 --build-dir "$PWD/dist"
+          cp docs/QNAP-INSTALL.md dist/INSTALL.md
+          cp docs/USAGE.md docs/MICROSOFT-SETUP.md docs/RECOVERY.md docs/ACCEPTANCE.md dist/
+          printf '%s\n' "${{ github.sha }}" > dist/SOURCE-COMMIT.txt
+          (cd dist && sha256sum *.qpkg > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: M365Backup-0.1.0-alpha.1-qnap-x86_64
+          path: dist/
+          retention-days: 90
+          if-no-files-found: error

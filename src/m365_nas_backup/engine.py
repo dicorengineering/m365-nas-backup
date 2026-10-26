@@ -1,4 +1,5 @@
 """Backup and restore orchestration. Failed runs never advance durable cursors."""
+
 import copy
 import hashlib
 import json
@@ -30,7 +31,16 @@ class Engine:
             enabled = [m for m in settings.mailboxes if m.enabled]
             if not enabled:
                 raise ValueError("Configure at least one mailbox")
-            graph = self.factory(settings, self.config)
+            try:
+                graph = self.factory(settings, self.config)
+            except Exception as exc:
+                # Credential/bootstrap errors must immediately fail monitoring, including
+                # when a recent completed snapshot would otherwise appear healthy.
+                code = error_code(exc)
+                for mailbox in enabled:
+                    self.repo.fail(self.repo.begin(mailbox.user), code)
+                    results.append({"mailbox": mailbox.user, "status": "failed", "error": code})
+                return results
             try:
                 for mailbox in enabled:
                     job = self.repo.begin(mailbox.user)
@@ -61,9 +71,14 @@ class Engine:
             previous = None
         folders = graph.folders(mailbox_id)
         manifest = {
-            "schema": 1, "format": "exchange-fts", "mailbox_id": mailbox_id,
-            "user": user, "captured_started": utcnow(), "folders": {},
-            "scope": "email-folders", "excluded_folders": [],
+            "schema": 1,
+            "format": "exchange-fts",
+            "mailbox_id": mailbox_id,
+            "user": user,
+            "captured_started": utcnow(),
+            "folders": {},
+            "scope": "email-folders",
+            "excluded_folders": [],
         }
         for folder in folders:
             if folder.get("type") != "IPF.Note":
@@ -101,7 +116,7 @@ class Engine:
             ids = list(changed)
             for offset in range(0, len(ids), 20):
                 self._space(settings)
-                group = ids[offset:offset + 20]
+                group = ids[offset : offset + 20]
                 exported = graph.export(mailbox_id, group)
                 for iid in group:
                     item = changed[iid]
@@ -112,12 +127,18 @@ class Engine:
                     if description.get("changeKey") != export["changeKey"]:
                         raise ValueError("Item changed while reading metadata; retry the backup")
                     subject = next(
-                        (p["value"] for p in description.get("singleValueExtendedProperties", [])
-                         if p.get("id", "").lower() == "string 0x0037"), ""
+                        (
+                            p["value"]
+                            for p in description.get("singleValueExtendedProperties", [])
+                            if p.get("id", "").lower() == "string 0x0037"
+                        ),
+                        "",
                     )
                     state["items"][iid] = {
-                        "metadata": description, "subject": subject,
-                        "blob": self.repo.put(export["bytes"]), "changeKey": export["changeKey"],
+                        "metadata": description,
+                        "subject": subject,
+                        "blob": self.repo.put(export["bytes"]),
+                        "changeKey": export["changeKey"],
                     }
             state["cursor"] = page.get("@odata.deltaLink", state["cursor"])
         if not state["cursor"]:
@@ -141,19 +162,26 @@ class Engine:
                 issue = "overdue"
             elif attempt and attempt["status"] == "failed":
                 issue = attempt["error"] or "failed"
-            reports.append({
-                "mailbox": mailbox.user, "label": mailbox.label or mailbox.user,
-                "healthy": issue is None, "issue": issue,
-                "last_completed": snap["completed"] if snap else None,
-                "item_count": snap["item_count"] if snap else 0,
-                "running": bool(attempt and attempt["status"] == "running"),
-            })
+            reports.append(
+                {
+                    "mailbox": mailbox.user,
+                    "label": mailbox.label or mailbox.user,
+                    "healthy": issue is None,
+                    "issue": issue,
+                    "last_completed": snap["completed"] if snap else None,
+                    "item_count": snap["item_count"] if snap else 0,
+                    "running": bool(attempt and attempt["status"] == "running"),
+                }
+            )
         free = shutil.disk_usage(self.repo.directory).free
         space_ok = free >= settings.minimum_free_gb * 1024**3
         return {
             "healthy": bool(reports) and all(r["healthy"] for r in reports) and space_ok,
-            "mailboxes": reports, "free_bytes": free, "storage_healthy": space_ok,
-            "configured": bool(reports), "scheduler_enabled": settings.scheduler_enabled,
+            "mailboxes": reports,
+            "free_bytes": free,
+            "storage_healthy": space_ok,
+            "configured": bool(reports),
+            "scheduler_enabled": settings.scheduler_enabled,
             "scope": "Email in primary/shared mailboxes; archive mailboxes excluded",
         }
 
@@ -167,7 +195,8 @@ class Engine:
         for folder_id, item_id in keys:
             manifest["folders"][folder_id]["items"][item_id]
         payload = {
-            "snapshot_id": snapshot_id, "destination": destination,
+            "snapshot_id": snapshot_id,
+            "destination": destination,
             "selections": sorted(selections, key=lambda s: (s["folder_id"], s["item_id"])),
         }
         signature = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
@@ -186,7 +215,9 @@ class Engine:
             manifest = self.repo.manifest(plan["snapshot_id"])
             # Verify all selected content before creating anything in Exchange.
             for selection in plan["selections"]:
-                self.repo.get(manifest["folders"][selection["folder_id"]]["items"][selection["item_id"]]["blob"])
+                self.repo.get(
+                    manifest["folders"][selection["folder_id"]]["items"][selection["item_id"]]["blob"]
+                )
             job = uuid4().hex
             with self.repo.db() as db:
                 db.execute(
@@ -207,8 +238,12 @@ class Engine:
                     if fid not in children:
                         # Each original folder is separated, even for duplicate display names.
                         name = source["metadata"].get("displayName", "Recovered")[:160]
-                        children[fid] = graph.create_folder(target, name + " " + hashlib.sha256(fid.encode()).hexdigest()[:6], root)
-                    result = graph.import_item(target, children[fid], self.repo.get(source["items"][iid]["blob"]))
+                        children[fid] = graph.create_folder(
+                            target, name + " " + hashlib.sha256(fid.encode()).hexdigest()[:6], root
+                        )
+                    result = graph.import_item(
+                        target, children[fid], self.repo.get(source["items"][iid]["blob"])
+                    )
                     results.append({"source_item": iid, "restored_item": result["itemId"]})
                     with self.repo.db() as db:
                         db.execute("UPDATE restores SET result=? WHERE id=?", (json.dumps(results), job))
@@ -222,5 +257,7 @@ class Engine:
                     graph.close()
             outcome = {"id": job, "status": status, "folder": recovery_name, "items": results, "error": error}
             with self.repo.db() as db:
-                db.execute("UPDATE restores SET status=?,result=? WHERE id=?", (status, json.dumps(outcome), job))
+                db.execute(
+                    "UPDATE restores SET status=?,result=? WHERE id=?", (status, json.dumps(outcome), job)
+                )
             return outcome

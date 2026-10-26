@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>M365 NAS Backup</title><link rel="stylesheet" href="/static/app.css"><script src="/static/app.js" defer></script></head>
+<body>
+<header><div class="brand"><strong>M365</strong><span>NAS Backup</span></div><span class="release">Development alpha</span></header>
+<main>
+<section id="login" class="login"><h1>Your mail. Your backup.</h1><p>Manage Exchange backups stored on your own infrastructure.</p><form id="login-form"><label for="token">Administrator access token</label><input id="token" type="password" required autocomplete="current-password"><button type="submit">Open backup console</button></form><p class="hint">Use the token in your installation’s <code>admin.token</code> file. Access this console over Tailscale or HTTPS.</p></section>
+<div id="console" hidden>
+<nav aria-label="Backup console"><button data-tab="overview" aria-current="page">Overview</button><button data-tab="recovery">Recovery</button><button data-tab="settings">Settings</button><button id="logout">Lock console</button></nav>
+<section id="overview" class="tab">
+<div class="title-row"><div><h1>Backup overview</h1><p>Completed backups, mailbox coverage, and storage.</p></div><button id="backup-now">Back up now</button></div>
+<div id="health-banner" class="notice">Loading backup status…</div>
+<div class="summary"><div><span>Protected mailboxes</span><strong id="mailbox-count">—</strong></div><div><span>Available storage</span><strong id="free-space">—</strong></div><div><span>Scheduled backups</span><strong id="schedule-state">—</strong></div></div>
+<div class="table-wrap"><table><thead><tr><th>Mailbox</th><th>Status</th><th>Last completed</th><th>Items</th></tr></thead><tbody id="mailbox-rows"></tbody></table></div>
+<p id="scope" class="hint"></p><h2>Latest operation</h2><pre id="operation">No operation has run in this session.</pre>
+<div class="note"><strong>Before relying on this backup</strong><p>This alpha still needs a live backup → delete → backup → restore test on your tenant. Retained snapshots cover email folders; online archives and other Microsoft 365 workloads are excluded.</p></div>
+</section>
+<section id="recovery" class="tab" hidden><h1>Recover email</h1><p>Choose a completed backup, then restore selected messages into a new recovery folder.</p>
+<div class="form-grid"><label>Recovery point<select id="snapshot"><option value="">Choose a backup</option></select></label><label>Find messages<input id="search" type="search" placeholder="Subject or folder"></label></div>
+<div class="actions"><button id="verify" class="secondary">Verify this backup</button><label>Destination mailbox<select id="destination"></select></label><button id="preview-restore">Review restore</button></div>
+<p id="item-count" class="hint">Choose a recovery point to browse its contents.</p>
+<div class="table-wrap"><table><thead><tr><th>Select</th><th>Subject</th><th>Folder</th><th>Modified</th></tr></thead><tbody id="item-rows"></tbody></table></div>
+<div class="actions"><button id="previous" class="secondary">Previous</button><button id="next" class="secondary">Next</button></div>
+</section>
+<section id="settings" class="tab" hidden><h1>Backup settings</h1><p>Connect your tenant and choose how much history to keep.</p>
+<form id="settings-form">
+<fieldset><legend>Microsoft connection</legend><div class="form-grid"><label>Tenant ID<input name="tenant_id" type="text" placeholder="Microsoft Entra tenant UUID"></label><label>Backup application ID<input name="client_id" type="text" placeholder="Read and export permissions"></label><label>Restore application ID<input name="restore_client_id" type="text" placeholder="Separate application with import permissions"></label></div><div class="actions"><button type="button" data-certificate="backup" class="secondary">Download backup certificate</button><button type="button" data-certificate="restore" class="secondary">Download restore certificate</button></div><p class="hint">Upload the public certificates to the matching Entra applications and grant the permissions listed in the setup guide. Private keys stay on this installation.</p></fieldset>
+<fieldset><legend>Mailboxes</legend><label for="mailboxes">One email address or Entra user ID per line</label><textarea id="mailboxes" rows="5" placeholder="person@example.com&#10;shared@example.com"></textarea><p class="hint">Only these mailboxes are selected. An alias is not a separate mailbox. This installation connects to one tenant.</p></fieldset>
+<fieldset><legend>Version history</legend><div class="form-grid"><label>Retention<select id="retention-mode"><option value="days">Keep for a number of days</option><option value="forever">Keep forever</option></select></label><label>Days to keep<input id="retention-days" type="number" min="1" max="36500" value="40"></label><label>Minimum recovery points per mailbox<input id="minimum-snapshots" type="number" min="1" max="10000" value="2"></label></div><label class="check"><input id="automatic-pruning" type="checkbox">Automatically remove expired recovery points after successful backups</label><p class="hint">Shortening retention can permanently remove older recovery points. Increasing retention cannot recover history that has already been removed. At least the configured minimum is always retained.</p></fieldset>
+<fieldset><legend>Schedule and monitoring</legend><div class="form-grid"><label>Backup interval (minutes)<input name="interval_minutes" type="number" min="15" max="10080"></label><label>Report overdue after (minutes)<input name="stale_after_minutes" type="number" min="30" max="43200"></label><label>Minimum free storage (GB)<input name="minimum_free_gb" type="number" min="0.1" step="0.1"></label></div><label class="check"><input name="scheduler_enabled" type="checkbox">Enable scheduled backups</label><label class="check"><input name="restore_enabled" type="checkbox">Enable restoration using the separate restore application</label></fieldset>
+<button type="submit">Save settings</button>
+</form>
+<div class="note"><h2>Retention cleanup</h2><p>Review which expired recovery points would be removed before starting a manual cleanup.</p><button id="preview-prune" class="secondary">Preview cleanup</button></div>
+<div class="note"><h2>Uptime Kuma</h2><p>Add an HTTP monitor for <code>/backup-status</code>, accept status 200, and set the Authorization header to <code>Bearer YOUR_MONITOR_TOKEN</code> from <code>monitor.token</code>. The separate <code>/health</code> endpoint checks only whether the service is running.</p></div>
+</section>
+</div>
+<div id="message" role="status" aria-live="polite" hidden></div>
+<dialog id="review"><h2 id="review-title"></h2><p id="review-body"></p><div class="actions"><button id="review-cancel" class="secondary">Cancel</button><button id="review-confirm">Confirm</button></div></dialog>
+</main><footer>M365 NAS Backup · Self-hosted Exchange protection · <span id="version">0.1 alpha</span></footer>
+</body></html>

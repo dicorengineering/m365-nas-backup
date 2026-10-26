@@ -1,70 +1,53 @@
 # Restart checkpoint
 
-Updated: 2026-10-25. Status: initial alpha under active construction.
+Updated: 2026-10-25. Status: core tests passing; 45 tests pass; packaging/browser CI ready for first run.
 
 ## Authorized outcome
-Build a reusable Exchange Online backup application with adjustable retention, restore research,
-Uptime Kuma HTTP monitoring, Docker support, and an installable QNAP package.
-Repository: https://github.com/dicorengineering/m365-nas-backup — MUST REMAIN PRIVATE.
-Originally named dicor-m365-backup; renamed for general use. Local folder still has the original name.
-No customer-specific settings belong in defaults or source control.
+Build a universal Exchange Online backup app with adjustable history, restore research,
+Uptime Kuma, portable Docker and an installable QNAP QPKG.
+Repository: https://github.com/dicorengineering/m365-nas-backup — KEEP PRIVATE.
+No tenant changes, real mail restoration, NAS deployment or publication authorized.
+User requested adequate install/usage instructions. Explained that the QNAP edition is a QPKG
+managed by App Center with Container Station as its required runtime.
+
+## Completed
+- Encrypted immutable snapshots, days/minimum/forever retention and confirmed cleanup.
+- Graph v1.0 incremental folder backup, opaque FTS export/import, safe import no-retry.
+- Separate backup/restore certificates, private API/UI, scheduler and Kuma monitoring.
+- Fixed authentication-initialization failures so current snapshots cannot mask failed attempts.
+- Consistent verified second-copy bundle export (keys excluded).
+- 45 local tests passed on Python 3.13. Ruff passed before latest CI/docs additions.
+- UI, QNAP wrapper, Dockerfile/Compose, runtime pins and documentation in progress.
+- No real credentials, mail data or NAS modifications.
+- Initial f34c2bb is pushed; subsequent work needs checkpoint commit/push.
+
+## Next actions
+1. Docs are complete. Ruff/pytest/node syntax checks passed; inspect first CI run.
+2. Commit/push; inspect GitHub Actions, repair failures.
+3. Download successful QPKG/browser artifacts; inspect screenshots and package metadata.
+4. Check privacy/secrets exclusions, document actual CI results.
+5. Deliver alpha + instructions with honest live acceptance limitations.
+6. Pause continuation automation after delivery. Do not deploy or restore real mail unasked.
 
 ## Environment
-Windows, Python 3.13, Git, gh. gh active account is dicorengineering.
-Local project: C:/Users/Matt Dick/Documents/ChatGPT/DiCor Websites/dicor-m365-backup
-Project virtualenv: .venv. Python dependencies were installed under the old package name;
-reinstall editable after rename using .venv/Scripts/python.exe -m pip install -e '.[dev]'.
-Normal exec/apply_patch/node runtime currently fail at sandbox launcher setup.
-Reviewed elevated exec_command works; use sandbox_permissions=require_escalated and explain the
-specific development action. Files were written using PowerShell literal here-string JSON and
-WriteAllText UTF-8 without BOM. Do not alter unrelated website files in the parent checkout.
+Windows PowerShell, Python 3.13, Git/gh; separate nested project repo.
+Use its root (folder still dicor-m365-backup), .venv/Scripts/python.exe.
+Default sandbox launcher fails. Reviewed require_escalated exec_command works.
+One review timed out; retry succeeded. Use literal PowerShell here-string JSON + UTF8 WriteAllText
+for file edits; command length must be under Windows 32K. Do not touch parent website files.
+Push needs: git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin main
+Do not globally change credentials. Active gh account dicorengineering.
+Docker/WSL unavailable locally; use Linux CI for container/QDK.
+Official QDK 2.5.3 .deb SHA256:
+17b3841b7d4590a4ee025844ba583304b5e3c497d9fa8934d5175131d3908022
 
-## Implemented, awaiting tests
-- src/m365_nas_backup/config.py: validated settings, atomic writes, generated admin/monitor tokens and encryption key.
-- repository.py: AES-GCM + compressed content-addressed objects, SQLite catalog, atomic snapshots,
-  retained history, minimum snapshots/keep-forever settings, preview/apply pruning, verification.
-- graph.py: Graph v1.0 discovery, recursive folders, per-folder delta, 20-item export,
-  subject metadata lookup, safe URL handling, limited retries, full-fidelity import into new folders.
-- engine.py: incremental backup checkpoints, 410 delta rebaseline, failure recording,
-  status freshness, preview/execute selected restore with separate restore credentials.
-- Repository created private; no real Microsoft credentials used; no NAS deployment.
-
-## Next steps
-1. Add API/server, scheduler, CLI/certificate bootstrap, basic functional administration UI.
-2. Add tests for deletion across backups, interrupted export, delta expiry, retention, encryption,
-   safe URLs/no credential leakage, uncertain restore no-retry, authentication, freshness.
-3. Address issues found in code review/tests. In particular authentication failure before begin()
-   currently may not create failed attempts; avoid false-green monitoring.
-4. Add portable Docker and QNAP Container Station wrapper with data outside package directory.
-   Use QDK 2.5.3 amd64 Debian package verified SHA256:
-   17b3841b7d4590a4ee025844ba583304b5e3c497d9fa8934d5175131d3908022
-5. Add CI tests/container build/QPKG build and download resulting private artifacts.
-6. Document Microsoft setup, restoration evidence, QNAP install, Kuma, key recovery, known limits.
-7. Verify secrets exclusions, commit/push, inspect CI and deliver alpha with honest acceptance limits.
-
-## Research conclusion
-Veeam currently documents MailboxItem.Export.All for backup and
-MailboxItem.ImportExport.All for restore. Thus full-fidelity Graph FTS export/import is a practical
-provider approach, despite Microsoft's overview saying the APIs are not designed for backup.
-Implement this as an experimental application with real backup/restore acceptance still required.
-Primary sources:
-- https://helpcenter.veeam.com/docs/vbo365/guide/vbo_upgrade_app_permissions_check.html
-- https://helpcenter.veeam.com/docs/vbo365/guide/ad_app_permissions_sd.html
-- https://learn.microsoft.com/en-us/graph/api/mailbox-exportitems?view=graph-rest-1.0
-- https://learn.microsoft.com/en-us/graph/import-exchange-mailbox-item
-- https://learn.microsoft.com/en-us/graph/api/usersettings-list-exchange?view=graph-rest-1.0
-- https://learn.microsoft.com/en-us/graph/api/resources/mailbox-import-export-api-overview?view=graph-rest-1.0
-- https://github.com/qnap-dev/QDK
-
-Alpha targets email folders (IPF.Note) in primary/shared mailboxes on Global Microsoft 365.
-No archive mailboxes, public folders, contacts/calendars/tasks, litigation holds, rules,
-permissions, tenant configuration, or full point-in-time Exchange rollback.
-A snapshot is a traversal over an interval, not a server-atomic instant.
-Do not claim live restore fidelity or QNAP installation tested without actual evidence.
+## Evidence and scope
+Veeam documents new Graph mailbox export/import permissions. Microsoft still cautions that these
+APIs are not designed for backup. Alpha covers IPF.Note folders in primary/shared Global-cloud
+mailboxes only. Live fidelity/physical QNAP install untested. No automatic second-copy replication.
 
 ## Continuation
-User explicitly requested continuation after usage-limit stops.
-An hourly thread heartbeat named Continue M365 NAS Backup exists,
-automation ID continue-m365-nas-backup. It should stay quiet unless meaningful progress or action
-is needed, respect usage limits, and pause after delivering the first tested installable alpha.
-Keep this checkpoint current. Do not duplicate the heartbeat.
+Hourly heartbeat continue-m365-nas-backup exists; do not duplicate.
+Resume from this file/Git state when capacity is available; respect limits.
+Quiet unless meaningful milestone/failure/user action. Pause after first tested installable alpha
+and documentation are delivered.

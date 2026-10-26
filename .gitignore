@@ -17,3 +17,9 @@ secrets/
 .tools/
 packaging/qnap/shared/image.tar.gz
 packaging/qnap/build/
+
+exports/
+*.token
+*.tar
+*.qpkg
+packaging/qnap/shared/image.sha256

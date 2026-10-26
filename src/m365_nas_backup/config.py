@@ -1,4 +1,5 @@
 """Validated configuration. Credentials are files, never API responses."""
+
 import json
 import os
 import secrets
@@ -69,6 +70,7 @@ class Settings(BaseModel):
     def uuid_or_blank(cls, value: str) -> str:
         if value:
             from uuid import UUID
+
             UUID(value)
         return value
 
