@@ -5,8 +5,8 @@ COPY requirements.txt pyproject.toml ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY src ./src
 RUN pip install --no-cache-dir --no-deps . \
-    && groupadd --gid 10001 backup \
-    && useradd --uid 10001 --gid backup --no-create-home backup \
+    && groupadd --gid 10001 m365backup \
+    && useradd --uid 10001 --gid m365backup --no-create-home --shell /usr/sbin/nologin m365backup \
     && mkdir /config /data \
     && chown 10001:10001 /config /data
 USER 10001:10001
