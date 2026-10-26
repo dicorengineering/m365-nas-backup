@@ -78,10 +78,17 @@ def main():
         settings["retention"]["days"] = 91
         assert request("/api/settings", admin, settings)[0] == 200
         docker("restart", name)
+        # Docker may allocate a different ephemeral host port after a restart.
+        port = docker("port", name, "8765/tcp").rsplit(":", 1)[1]
+        base = "http://127.0.0.1:" + port
         wait_ready()
         assert request("/api/settings", admin)[1]["retention"]["days"] == 91
         assert docker("exec", name, "cat", "/config/monitor.token") == monitor
         print("Container passed: non-root, read-only, authentication, freshness, persisted configuration.")
+    except Exception:
+        print(docker("inspect", "--format", "{{.State.Status}} exit={{.State.ExitCode}}", name))
+        print(docker("logs", "--tail", "100", name))
+        raise
     finally:
         subprocess.run(["docker", "rm", "-f", name], capture_output=True, check=False)
         subprocess.run(["docker", "volume", "rm", config, data], capture_output=True, check=False)

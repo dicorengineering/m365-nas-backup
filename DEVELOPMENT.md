@@ -22,7 +22,7 @@ managed by App Center with Container Station as its required runtime.
 - decfb42 is pushed. First CI failed only QNAP shell lint; fixed. filelock updated to 4.2.4 after audit; 46 tests and dependency audit now pass. Older recovery-point pagination added.
 
 ## Next actions
-1. Docs complete. 46 tests pass on Windows/CI Linux Python 3.12 and 3.13; audit clean. CI 40248199052 caught a settings-tab load/edit race; fixed by loading before showing the form. Browser test passes in CI 40248555798; container build found Debian's existing backup group. Fixed runtime account name to m365backup (UID/GID stays 10001). Inspect next CI.
+1. Docs complete. 46 tests pass on Windows/CI Linux Python 3.12 and 3.13; audit clean. CI 40248199052 caught a settings-tab load/edit race; fixed by loading before showing the form. Browser test passes in CI 40248555798; container build found Debian's existing backup group. Fixed runtime account name to m365backup (UID/GID stays 10001). Container builds and initial startup/authentication pass in CI 40248794015. Restart check failed; test now re-reads Docker's dynamic host port after restart and captures safe diagnostics. Inspect next CI.
 2. Commit/push; inspect GitHub Actions, repair failures.
 3. Download successful QPKG/browser artifacts; inspect screenshots and package metadata.
 4. Check privacy/secrets exclusions, document actual CI results.
