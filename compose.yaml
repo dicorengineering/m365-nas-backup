@@ -1,7 +1,7 @@
 # Import the bundled image before starting. No registry login or NAS build required.
 services:
   backup:
-    image: m365-nas-backup:0.1.0-alpha.2
+    image: m365-nas-backup:0.1.0-alpha.3
     container_name: m365-nas-backup
     user: "10001:10001"
     ports:

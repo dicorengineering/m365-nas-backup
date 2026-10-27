@@ -5,13 +5,14 @@ QNAP users can follow the GUI procedure in [QNAP-INSTALL.md](QNAP-INSTALL.md).
 
 ## Install
 
-Download and unzip **M365Backup-0.1.0-alpha.2-docker-amd64** from a successful
-**Test and build Docker alpha** Actions run in the private repository.
+Download and unzip **M365Backup-0.1.0-alpha.3-docker-amd64.zip** from the private
+**Docker alpha 3** release (or the artifact from a successful Docker build Actions run).
 In that extracted directory:
 
 ```sh
 sha256sum -c SHA256SUMS
-docker load --input m365-nas-backup-0.1.0-alpha.2-amd64.tar.gz
+docker load --input m365-nas-backup-0.1.0-alpha.3-amd64.tar.gz
+docker image inspect m365-nas-backup:0.1.0-alpha.3 --format '{{.Architecture}} {{.Os}}'
 docker compose up -d --pull never
 docker compose exec backup cat /config/admin.token
 ```
@@ -81,7 +82,7 @@ repository or credentials directory between running services.
 On a build machine, check out the intended revision and run:
 
 ```sh
-docker build -t m365-nas-backup:0.1.0-alpha.2 .
+docker build -t m365-nas-backup:0.1.0-alpha.3 .
 docker compose up -d --pull never
 ```
 

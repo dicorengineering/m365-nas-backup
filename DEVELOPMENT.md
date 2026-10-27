@@ -1,6 +1,17 @@
 # Restart checkpoint
 
-Updated 2026-10-26. Docker-only alpha 2 complete; ready for the user's NAS evaluation.
+Updated 2026-10-26. Active fix: alpha 2 image-import problem on Container Station 3.1.2.1742.
+
+## Current fix checkpoint
+User reports successful import notification but no image listed. Confirmed alpha 2 archive has
+OCI layout plus Docker manifest; this is a possible GUI compatibility issue, not a proven root cause.
+Previous tests did not load the exported archive. Preparing alpha 3 using a classic Docker-store
+export and clean archive import/list/start tests on an isolated Docker 27.1.2 engine, followed
+by the existing modern-engine Compose/resource tests using that same archive. No runtime feature
+changes; version only. Need local Ruff/pytest, push/inspect CI, download/verify package, publish
+private prerelease, update checkpoint. Do not claim the QNAP UI is fixed before user confirmation.
+Automation remains paused. Do not deploy to NAS or touch tenant. Older delivery details below.
+
 
 ## Current direction and authorization
 The user explicitly replaced QPKG with fully Docker-based deployment. Do not investigate

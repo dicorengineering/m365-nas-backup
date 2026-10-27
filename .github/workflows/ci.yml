@@ -49,22 +49,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build portable container
-        run: docker build --tag m365-nas-backup:0.1.0-alpha.2 .
+        run: docker build --tag m365-nas-backup:0.1.0-alpha.3 .
+      - name: Export classic archive and test fresh import on Docker 27
+        run: python3 -m scripts.package_image
       - name: Test shipped Compose, persistence and resource limits with synthetic mail
         run: python3 -m scripts.container_smoke
       - name: Bundle prebuilt image and instructions
         run: |
           mkdir -p dist/docs
-          docker save m365-nas-backup:0.1.0-alpha.2 | gzip -1 > dist/m365-nas-backup-0.1.0-alpha.2-amd64.tar.gz
           cp compose.yaml dist/
           cp packaging/INSTALL.md dist/INSTALL.md
           cp docs/*.md dist/docs/
-          cp build/resource-report.json dist/
+          cp build/resource-report.json build/import-report.json dist/
           printf '%s\n' "${{ github.sha }}" > dist/SOURCE-COMMIT.txt
-          (cd dist && sha256sum *.tar.gz compose.yaml INSTALL.md resource-report.json SOURCE-COMMIT.txt docs/*.md > SHA256SUMS)
+          (cd dist && sha256sum *.tar.gz compose.yaml INSTALL.md *-report.json SOURCE-COMMIT.txt docs/*.md > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
-          name: M365Backup-0.1.0-alpha.2-docker-amd64
+          name: M365Backup-0.1.0-alpha.3-docker-amd64
           path: dist/
           retention-days: 90
           if-no-files-found: error

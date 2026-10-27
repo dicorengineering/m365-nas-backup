@@ -9,7 +9,9 @@ Keep your existing backup until acceptance succeeds.
 
 ## Installation and persistence
 
-- Import the image and create the Compose application on the intended QTS/NAS model.
+- Import the image on the intended QTS/NAS model; confirm the exact tag appears in Images
+  (or `docker image ls`) before creating the Compose application. A success notification alone
+  does not establish that the image was loaded.
 - Confirm Container Station runs it without privileged/root application access.
 - Open through a protected route; confirm unauthenticated data access is denied.
 - Save retention, stop/start in Container Station, and verify settings survive.

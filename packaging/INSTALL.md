@@ -1,4 +1,4 @@
-# M365 NAS Backup — Docker alpha 2
+# M365 NAS Backup — Docker alpha 3
 
 Start with [QNAP installation](docs/QNAP-INSTALL.md) or
 [Linux Docker installation](docs/DOCKER-INSTALL.md).
@@ -12,5 +12,7 @@ Read [resource use](docs/RESOURCES.md), [Microsoft setup](docs/MICROSOFT-SETUP.m
 
 SHA256SUMS covers the supplied files. SOURCE-COMMIT.txt identifies the source revision;
 resource-report.json contains that build's synthetic test measurements.
+import-report.json records the archive format and fresh import/startup checks.
+The archive uses the classic Docker format for NAS importer compatibility.
 
 This is a private development alpha. Physical NAS and live Microsoft acceptance remain required.
