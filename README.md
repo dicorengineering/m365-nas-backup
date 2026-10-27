@@ -10,7 +10,7 @@ to one Microsoft 365 tenant; no organization-specific configuration is built in.
 
 ## Start here
 
-**[Install with docker pull](docs/REGISTRY-INSTALL.md)** — preferred for QNAP.
+**[Install with docker pull](docs/REGISTRY-INSTALL.md)** â€” preferred for QNAP.
 
 [Download Docker alpha 3](https://github.com/dicorengineering/m365-nas-backup/releases/tag/v0.1.0-alpha.3) (private prerelease). Unzip and open INSTALL.md.
 
