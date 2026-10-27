@@ -10,6 +10,7 @@ from uuid import uuid4
 from .comparison import compare_mailbox
 from .config import Configuration, Settings
 from .graph import AppToken, Graph, GraphError, UncertainWrite
+from .metadata import metadata_subject
 from .repository import Repository, utcnow
 
 
@@ -125,14 +126,7 @@ class Engine:
                 description = graph.describe(mailbox_id, folder["id"], iid)
                 if description.get("changeKey") != export["changeKey"]:
                     raise ValueError("Item changed while reading metadata; retry the backup")
-                subject = next(
-                    (
-                        p["value"]
-                        for p in description.get("singleValueExtendedProperties", [])
-                        if p.get("id", "").lower() == "string 0x0037"
-                    ),
-                    "",
-                )
+                subject = metadata_subject(description)
                 state["items"][iid] = {
                     "metadata": description,
                     "subject": subject,

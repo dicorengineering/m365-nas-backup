@@ -20,6 +20,7 @@ from .config import Configuration, Settings
 from .credentials import activate_certificate, certificate_status, prepare_certificate
 from .engine import Engine, error_code
 from .graph import AppToken
+from .metadata import item_subject
 from .repository import Repository
 
 
@@ -281,7 +282,7 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
         for fid, folder in manifest["folders"].items():
             name = folder["metadata"].get("displayName", "")
             for iid, item in folder["items"].items():
-                subject = item.get("subject", "")
+                subject = item_subject(item)
                 if q.casefold() not in (subject + " " + name).casefold():
                     continue
                 matches.append(

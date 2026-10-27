@@ -39,6 +39,13 @@ Changing retention alone does not delete anything. Automatic cleanup or confirme
 does. Raising retention cannot restore removed versions. Unchanged objects are deduplicated,
 but each recovery point has its own encrypted manifest.
 
+## Message subjects
+
+Alpha 5 fixes subject extraction when Graph returns a property tag such as `String 0x37`
+instead of `String 0x0037`. Existing snapshots are displayed and searched using their saved
+metadata when the old subject field is blank. No rebackup, tenant access or snapshot rewrite
+is needed when that metadata contains the subject. Truly absent/empty subjects remain "(No subject)".
+
 ## Browse and restore email
 
 1. In **Recovery**, choose the source mailbox/date from **Recovery point**. Use **Load older recovery points** to access history beyond the first 1,000 points.

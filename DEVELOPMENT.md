@@ -1,5 +1,15 @@
 # Restart checkpoint
 
+## Alpha 5 subject fix (2026-10-27)
+User reports all email subjects blank while alpha4 was building. Alpha4 run40547800787
+completed SUCCESS (tests/browser/container/private push+pull), source1b2ac817dc1d0e6b8bc80e1e1cc430b73010686c.
+Do not overwrite its published tag. Alpha5 includes all alpha4 features plus numeric parsing of
+MAPI subject tag0x0037 (Graph may serialize0x37), used for new backups and live comparison.
+Old snapshots recover display/search subjects from already-saved Graph metadata without any
+snapshot mutation or network call. FakeGraph now returns the unpadded property spelling.
+New regression tests exercise old snapshot browsing/search and comparison. Await alpha5 CI
+and private pull verification; no NAS/tenant changes or real mail accessed by this agent.
+
 ## Active alpha 4 work (2026-10-27)
 User reports backups working on the NAS; asks for live mailbox differences and bulk restore,
 and asks whether certificate expiry can be indefinite. Authorized software update only; no tenant

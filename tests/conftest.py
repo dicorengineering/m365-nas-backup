@@ -60,7 +60,7 @@ class FakeGraph:
             "type": "IPM.Note",
             "size": len(item["data"]),
             "lastModifiedDateTime": "2026-10-25T10:00:00Z",
-            "singleValueExtendedProperties": [{"id": "String 0x0037", "value": item["subject"]}],
+            "singleValueExtendedProperties": [{"id": "String 0x37", "value": item["subject"]}],
         }
 
     def create_folder(self, mailbox_id, name, parent=None):

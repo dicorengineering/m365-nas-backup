@@ -3,6 +3,7 @@
 from collections import Counter
 from uuid import uuid4
 
+from .metadata import item_subject, metadata_subject
 from .repository import utcnow
 
 
@@ -50,7 +51,7 @@ def compare_mailbox(graph, manifest, snapshot_id):
                 {
                     "folder_id": fid,
                     "item_id": iid,
-                    "subject": item.get("subject") or "(No subject)",
+                    "subject": item_subject(item) or "(No subject)",
                     "folder": folder["metadata"].get("displayName", fid),
                     "current_folder": present[0].get("displayName", "") if present else "",
                     "modified": item["metadata"].get("lastModifiedDateTime", ""),
@@ -65,14 +66,7 @@ def compare_mailbox(graph, manifest, snapshot_id):
         description = graph.describe(mailbox_id, folder["id"], iid)
         if description.get("changeKey") != item["changeKey"]:
             raise ValueError("A message changed during comparison; retry.")
-        subject = next(
-            (
-                p["value"]
-                for p in description.get("singleValueExtendedProperties", [])
-                if p.get("id", "").lower() == "string 0x0037"
-            ),
-            "(No subject)",
-        )
+        subject = metadata_subject(description) or "(No subject)"
         rows.append(
             {
                 "folder_id": "",

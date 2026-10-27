@@ -23,8 +23,8 @@ archive importer. The GitHub repository and container package remain private.
 ## Pull and confirm
 
 ```sh
-docker pull ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.4
-docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.4 --format '{{.Id}} {{.Architecture}} {{.Os}}'
+docker pull ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5
+docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5 --format '{{.Id}} {{.Architecture}} {{.Os}}'
 ```
 
 The inspection should show an image ID followed by `amd64 linux`.
@@ -36,7 +36,7 @@ Open the repository's [compose.yaml](../compose.yaml), copy its full contents, t
 **Container Station → Applications → Create** and paste them. The image line must be:
 
 ```yaml
-image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.4
+image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5
 ```
 
 Since the image is already pulled, leave forced pulling disabled. A login in your SSH account
