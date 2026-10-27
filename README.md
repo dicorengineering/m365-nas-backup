@@ -10,6 +10,8 @@ to one Microsoft 365 tenant; no organization-specific configuration is built in.
 
 ## Start here
 
+[Download Docker alpha 2](https://github.com/dicorengineering/m365-nas-backup/releases/tag/v0.1.0-alpha.2) (private prerelease). Unzip and open INSTALL.md.
+
 - **QNAP users:** [Installation and first access](docs/QNAP-INSTALL.md)
 - [Microsoft 365 application setup](docs/MICROSOFT-SETUP.md)
 - [Daily use, retention, restore, Uptime Kuma and troubleshooting](docs/USAGE.md)
