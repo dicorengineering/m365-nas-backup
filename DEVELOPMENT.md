@@ -1,53 +1,49 @@
 # Restart checkpoint
 
-Updated: 2026-10-25. Status: core tests passing; 46 tests pass; packaging/browser CI ready for first run.
+Updated 2026-10-26. Active: Docker-only alpha 2 conversion and resource checks.
 
-## Authorized outcome
-Build a universal Exchange Online backup app with adjustable history, restore research,
-Uptime Kuma, portable Docker and an installable QNAP QPKG.
-Repository: https://github.com/dicorengineering/m365-nas-backup — KEEP PRIVATE.
-No tenant changes, real mail restoration, NAS deployment or publication authorized.
-User requested adequate install/usage instructions. Explained that the QNAP edition is a QPKG
-managed by App Center with Container Station as its required runtime.
+## Current user direction
+The user tried alpha 1 QPKG and saw a false Container Station dependency failure.
+They explicitly said not to spend usage investigating the wrapper: move fully to Docker.
+Keep it lightweight for their QNAP TS-453A; provide adequate install and usage instructions.
+Repository https://github.com/dicorengineering/m365-nas-backup remains PRIVATE (confirmed).
+No NAS deployment, tenant changes, real restore, or publication authorized.
 
-## Completed
-- Encrypted immutable snapshots, days/minimum/forever retention and confirmed cleanup.
-- Graph v1.0 incremental folder backup, opaque FTS export/import, safe import no-retry.
-- Separate backup/restore certificates, private API/UI, scheduler and Kuma monitoring.
-- Fixed authentication-initialization failures so current snapshots cannot mask failed attempts.
-- Consistent verified second-copy bundle export (keys excluded).
-- 46 local tests passed on Python 3.13. Ruff passed before latest CI/docs additions.
-- UI, QNAP wrapper, Dockerfile/Compose, runtime pins and documentation in progress.
-- No real credentials, mail data or NAS modifications.
-- decfb42 is pushed. First CI failed only QNAP shell lint; fixed. filelock updated to 4.2.4 after audit; 46 tests and dependency audit now pass. Older recovery-point pagination added.
+## Prior verified baseline
+b9de406: 46 tests on Python 3.12/3.13, Ruff, dependency audit, browser and Docker smoke
+passed in https://github.com/dicorengineering/m365-nas-backup/actions/runs/40249110356 .
+The old QPKG was built but user installation failed. Do not recommend that artifact.
+Core encrypted snapshots/retention, Graph opaque FTS restore, UI/Kuma and recovery bundles exist.
+Live Exchange fidelity and physical NAS acceptance remain untested.
 
-## Next actions
-1. Docs complete. 46 tests pass on Windows/CI Linux Python 3.12 and 3.13; audit clean. CI 40248199052 caught a settings-tab load/edit race; fixed by loading before showing the form. Browser test passes in CI 40248555798; container build found Debian's existing backup group. Fixed runtime account name to m365backup (UID/GID stays 10001). Container builds and initial startup/authentication pass in CI 40248794015. Restart check failed; test now re-reads Docker's dynamic host port after restart and captures safe diagnostics. Inspect next CI.
-2. Commit/push; inspect GitHub Actions, repair failures.
-3. Download successful QPKG/browser artifacts; inspect screenshots and package metadata.
-4. Check privacy/secrets exclusions, document actual CI results.
-5. Deliver alpha + instructions with honest live acceptance limitations.
-6. Pause continuation automation after delivery. Do not deploy or restore real mail unasked.
+## Work in progress
+- Remove QPKG wrapper/build; universal prebuilt linux/amd64 image archive + Compose bundle.
+- Alpha 2 uses named persistent volumes, 512 MiB ceiling, one CPU, no container swap,
+  capped logs, one message per export request. No build or registry account needed on NAS.
+- CI will test the shipped Compose, persistence through recreation, and synthetic workload
+  (2,000 x 64 KiB plus 2 x 16 MiB exports, incremental change/deletion, both snapshots verified).
+- Rewrite QNAP/Docker installation, migration, resource and recovery instructions.
+- Do not claim measured memory until resource-report.json is produced by successful CI.
+
+## Next steps
+1. Finish edits; pytest, Ruff and JS syntax checks.
+2. Commit/push safe checkpoint; inspect Linux CI and repair failures.
+3. Download Docker alpha artifact, verify SHA-256 and inspect resource report.
+4. Update this checkpoint with results, deliver image/Compose/instructions and honest limits.
+5. Leave continuation paused after delivery. Current automation TOML is already PAUSED;
+   update its prompt to Docker-only so a later resume cannot restart QPKG work.
 
 ## Environment
-Windows PowerShell, Python 3.13, Git/gh; separate nested project repo.
-Use its root (folder still dicor-m365-backup), .venv/Scripts/python.exe.
-Default sandbox launcher fails. Reviewed require_escalated exec_command works.
-One review timed out; retry succeeded. Use literal PowerShell here-string JSON + UTF8 WriteAllText
-for file edits; command length must be under Windows 32K. Do not touch parent website files.
-Push needs: git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin main
-Do not globally change credentials. Active gh account dicorengineering.
-Docker/WSL unavailable locally; use Linux CI for container/QDK.
-Official QDK 2.5.3 .deb SHA256:
-17b3841b7d4590a4ee025844ba583304b5e3c497d9fa8934d5175131d3908022
+Windows PowerShell, Python 3.13, Git/gh; separate nested project repository.
+Use .venv/Scripts/python.exe. No Docker/WSL locally; Linux CI runs container checks.
+Sandbox launcher fails; reviewed require_escalated exec_command works.
+Literal PowerShell here-string JSON + UTF8 WriteAllText for edits, commands under Windows 32K.
+Push: git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin main
+Do not change global credentials or parent website files. No agents unless user requests.
 
-## Evidence and scope
-Veeam documents new Graph mailbox export/import permissions. Microsoft still cautions that these
-APIs are not designed for backup. Alpha covers IPF.Note folders in primary/shared Global-cloud
-mailboxes only. Live fidelity/physical QNAP install untested. No automatic second-copy replication.
-
-## Continuation
-Hourly heartbeat continue-m365-nas-backup exists; do not duplicate.
-Resume from this file/Git state when capacity is available; respect limits.
-Quiet unless meaningful milestone/failure/user action. Pause after first tested installable alpha
-and documentation are delivered.
+## Scope
+Global-cloud primary/shared email folders (IPF.Note) only, no online archives.
+Microsoft cautions these Graph APIs are not designed for backup; live acceptance required.
+Full manifests are in memory; capacity/large-message peaks need actual NAS testing.
+Retained encrypted snapshot format is unchanged from alpha 1. Keys must be preserved.
+Heartbeat id continue-m365-nas-backup; no duplicate automation.

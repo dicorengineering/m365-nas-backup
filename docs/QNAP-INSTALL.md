@@ -1,134 +1,166 @@
-# Install the QNAP app
+# QNAP installation — Docker alpha 2
 
-This is the primary installation path. Install **M365 NAS Backup** as a QNAP `.qpkg`
-and manage it through **App Center**. The app runs a bundled container through **Container
-Station**. You do not need to build an image or create a Docker Compose project for this path.
+M365 NAS Backup now runs directly in **Container Station** as one Docker container.
+The QPKG wrapper has been retired. Use this guide instead of the alpha 1 App Center installer.
 
-## 1. Check the NAS
+## 1. Download the prebuilt package
 
-You need QTS 5.2+ on an Intel/AMD 64-bit QNAP, Container Station installed/running,
-an administrator account, and free disk space for the app, backup data, and recovery bundles.
-Reserve several GB for installation overhead in addition to mailbox history. The container
-is limited to 2 GB RAM; leave enough memory for QTS and other applications.
-ARM and QuTS hero have not been accepted for this alpha.
+On a computer signed into GitHub with repository access:
 
-Use local NAS storage. Do not mount the live SQLite catalog through SMB/NFS or place it in a
-bidirectional synchronization share. This alpha is **unsigned** and has not completed physical
-QNAP acceptance. Start with a noncritical mailbox and keep your existing backup during the trial.
+1. Open this repository's **Actions → Test and build Docker alpha**.
+2. Choose a successful run and download **M365Backup-0.1.0-alpha.2-docker-amd64**.
+3. Unzip the download. Keep the image archive, `compose.yaml`, instructions, resource report
+   and `SOURCE-COMMIT.txt` together.
+4. Check the image's SHA-256 against the matching line in `SHA256SUMS`. On Windows:
 
-## 2. Download the private installer
+   ```powershell
+   Get-FileHash .\m365-nas-backup-0.1.0-alpha.2-amd64.tar.gz -Algorithm SHA256
+   ```
 
-1. Sign in to GitHub with access to this repository.
-2. Open **Actions → Test and build QNAP alpha**.
-3. Select a successful run for the intended version.
-4. Download **M365Backup-0.1.0-alpha.1-qnap-x86_64** and unzip it.
-5. Confirm the QPKG checksum matches `SHA256SUMS`. On Windows:
-   `Get-FileHash .\M365Backup_*.qpkg -Algorithm SHA256`. On Linux:
-   `sha256sum -c SHA256SUMS` in the extracted folder.
-6. Keep the included `SOURCE-COMMIT.txt` with installation records.
+   On Linux, `sha256sum -c SHA256SUMS` checks all packaged files.
 
-Only install a package from the intended repository/run. Do not execute the QPKG on a PC.
+There is no public image registry yet. This download includes the image; the NAS needs
+neither GitHub credentials nor a compiler. The repository remains private.
 
-## 3. Install in App Center
+## 2. Check storage and the earlier installation
 
-1. Install/start **Container Station** if it is not already present.
-2. In App Center, choose **Install Manually**, then select the downloaded `.qpkg`.
-3. QTS may require its setting allowing applications without a digital signature for this
-   experimental package. Follow the firmware's prompt and verify source/checksum first.
-4. Select the storage volume, complete installation, and start **M365 NAS Backup**.
-5. Allow several minutes on first start while the bundled image loads.
+Target: Intel/AMD 64-bit QNAP, QTS 5.2+, Container Station 3. The TS-453A is an x86-64 target;
+this package has not been tested on a physical NAS. ARM images are not supplied.
 
-No private registry login is needed. Installation does not connect to Microsoft 365;
-scheduling is off by default.
+Choose Container Station storage on a local NAS data volume with enough free space for
+mail history and full recovery bundles. The defaults create three Docker volumes there:
 
-## 4. Open the console securely
+| Docker volume | Mounted path | Contents |
+| --- | --- | --- |
+| m365nasbackup_config | /config | Settings, encryption key, tokens and certificates |
+| m365nasbackup_data | /data | Encrypted messages/manifests and catalog |
+| m365nasbackup_exports | /exports | Completed recovery bundles |
 
-The alpha binds to **127.0.0.1:8765** by default. The initial App Center Open button therefore
-will not reach it from another computer until access is configured. The administrator token
-must not travel over an ordinary unencrypted LAN connection.
+These persist independently of the container. **Do not delete/prune these volumes.**
+Do not use SMB/NFS or a live bidirectional synchronization folder for the working repository.
+To choose explicit folders instead, see [Docker storage options](DOCKER-INSTALL.md#storage-options).
 
-For initial setup, enable SSH on the NAS for your administrator account, then create a tunnel
-from your computer. Replace the account and NAS address:
+If you attempted the old QPKG, stop/disable **M365 NAS Backup** in App Center if it exists.
+Do not stop Container Station. Check for an old `m365-nas-backup` container before creating
+the new application. A name conflict is expected if one remains.
+
+- If installation failed before creating any backups, the new application can start with fresh volumes.
+- If there is existing backup data, follow the migration section below **before** starting the new app.
+- Preserve any old configuration/data until you have checked whether they are needed.
+
+## 3. Import the image
+
+In **Container Station → Images → Import**, choose the downloaded
+`m365-nas-backup-0.1.0-alpha.2-amd64.tar.gz`. Wait for the import to finish.
+Do not select the optional **Import and Create** shortcut; the next step supplies the storage
+and resource settings. Confirm `m365-nas-backup:0.1.0-alpha.2` appears in Images.
+
+Import through **Images**, not the container-import screen. If using SSH instead:
+`docker load --input /PATH/TO/m365-nas-backup-0.1.0-alpha.2-amd64.tar.gz`.
+
+## 4. Create the application
+
+In **Container Station → Applications → Create**, name the application `m365nasbackup`.
+Paste the entire supplied `compose.yaml`, validate the YAML, and create the application.
+Leave any option to pull a newer image disabled: the exact image was imported locally.
+Allow time for the first start and certificate creation.
+
+The supplied settings cap memory at **512 MiB** and CPU at **one CPU's worth of processing**.
+Memory is consumed as needed, not reserved. No extra database container is needed.
+[Resource guidance](RESOURCES.md) explains measurements, limits and adjustments.
+
+## 5. Open the console and sign in
+
+The default listens on the NAS's **127.0.0.1:8765**. Container Station's web shortcut
+will not reach that address from your computer. For initial access, enable SSH on the NAS
+and run this on your computer, substituting the NAS administrator and address:
 
 ```sh
 ssh -N -L 8765:127.0.0.1:8765 NAS_ADMIN@NAS_ADDRESS
 ```
 
-Keep the session open. Browse to **http://127.0.0.1:8765** on your computer. If local port 8765
-is occupied, use `-L 8766:127.0.0.1:8765` and browse to port 8766.
+Leave the tunnel open and browse to **http://127.0.0.1:8765** on your computer.
+If that local port is in use, use `-L 8766:127.0.0.1:8765` and browse to port 8766.
 
-In a second SSH session, locate the app state:
+Open a terminal for the running container in Container Station and run:
 
 ```sh
-APP=$(/sbin/getcfg M365Backup Install_Path -f /etc/config/qpkg.conf)
-VOLUME=$(dirname "$(dirname "$(readlink -f "$APP")")")
-STATE="$VOLUME/M365NASBackup"
-printf '%s\n' "$STATE"
-sudo cat "$STATE/config/admin.token"
+cat /config/admin.token
 ```
 
-Use an administrator shell if `sudo` is unavailable on your firmware. Copy the token directly
-into the console login field. Do not post it in chat, screenshots, or support tickets.
-The console keeps it in memory; reloading/closing the tab requires signing in again.
+Alternatively, in a second NAS SSH session: `docker exec m365-nas-backup cat /config/admin.token`.
+Paste the token into the console. Do not share it in screenshots or support messages.
+The console retains it only in tab memory; a reload requires signing in again.
 
-For daily access, use the SSH tunnel, an HTTPS reverse proxy, or a private Tailscale address.
-To listen on a NAS Tailscale IPv4 address, stop the app in App Center and edit
-`$STATE/network.conf` as administrator:
+For daily access over Tailscale, change the Compose port line to the NAS's **actual Tailscale IP**:
 
-```ini
-bind_address=100.64.0.10
-port=8765
+```yaml
+    ports:
+      - "100.64.0.10:8765:8765"
 ```
 
-That address is an **example**: use the NAS's actual Tailscale IP. Start the app and browse to
-`http://YOUR_NAS_TAILSCALE_IP:8765` from a permitted Tailscale device. Traffic is carried by
-the encrypted tunnel. The alpha accepts IPv4 only. An unavailable bind address prevents startup;
-start Tailscale first, then restart the app.
+The address above is an example. In Container Station use **Recreate** to update the YAML,
+keeping the same volume names. Start Tailscale before this application. Browse to
+`http://YOUR_NAS_TAILSCALE_IP:8765` from an allowed Tailscale device.
+An HTTPS reverse proxy is another option. Keep plain HTTP inside a protected tunnel;
+do not expose the administrator token over ordinary LAN HTTP or the public Internet.
 
-Alternatively, leave loopback binding and route an HTTPS reverse proxy to 127.0.0.1:8765.
-Confirm the proxy can reach that host address. Do not expose this alpha directly to the Internet
-or use `0.0.0.0` with plain HTTP on an ordinary LAN.
+## 6. Connect Microsoft 365
 
-## 5. Connect Microsoft 365 and make the first backup
+Follow [Microsoft setup](MICROSOFT-SETUP.md), then:
 
-Follow [MICROSOFT-SETUP.md](MICROSOFT-SETUP.md), then:
+1. Enter tenant/application IDs in Settings and add one noncritical mailbox.
+2. Leave scheduling and automatic cleanup off initially.
+3. Save and click **Back up now** in Overview.
+4. Browse and verify the completed recovery point.
+5. Complete the [acceptance checks](ACCEPTANCE.md), including a disposable-message restore.
+6. Add mailboxes and choose retention/scheduling. Configure [Uptime Kuma](USAGE.md#uptime-kuma).
 
-1. Enter the tenant/backup application IDs in Settings.
-2. Add one noncritical test mailbox, one address per line.
-3. Leave scheduling/automatic cleanup off for the first test.
-4. Save and click **Back up now** in Overview.
-5. Wait for completion, then inspect the recovery point in Recovery.
-6. Verify it and perform the [acceptance test](ACCEPTANCE.md).
-7. Add other mailboxes, choose retention/schedule, and configure monitoring.
+Scheduling and restore are disabled on a new installation. Installing the container alone
+does not contact your tenant. Preserve the configuration separately as described in
+[Recovery](RECOVERY.md); a lost encryption key cannot be regenerated.
 
-## Where files live
+## Maintenance
 
-Program files are under QNAP's `.qpkg/M365Backup`.
-Persistent state is beside `.qpkg`, at **VOLUME/M365NASBackup**:
+- **Stop/start/restart:** Container Station Applications. Wait for active work to finish before
+  maintenance. A forced stop interrupts the operation; incomplete backups never become recovery points.
+- **Upgrade:** first make a verified bundle and protected configuration copy. Import the new image,
+  stop the app, then use Recreate to change only the image tag and any documented settings.
+  Preserve the three volume names and container paths. Confirm settings and old points survive.
+- **Remove application:** keep its data volumes when prompted. Removing volumes or running
+  `docker compose down --volumes` destroys the installation's persistent state.
+- **Logs:** Container Station's container log view, or
+  `docker logs --tail 100 m365-nas-backup`.
+- **Resources:** watch actual CPU/RAM during the first baseline; consult [RESOURCES.md](RESOURCES.md).
+- **Recovery bundles and key backup:** [RECOVERY.md](RECOVERY.md).
 
-| Location | Contents |
-| --- | --- |
-| `config/` | Encryption key, access tokens, private/public certificates, settings |
-| `data/` | Encrypted objects and snapshot catalog |
-| `exports/` | Second-copy bundles you create |
-| `network.conf` | Bind address and web port |
+QNAP's [Container Station 3 guide](https://www.qnap.com/en-us/how-to/tutorial/article/how-to-use-container-station-3)
+documents image import, Compose applications, terminal access and application recreation.
 
-The container runs as numeric user/group 10001, without privileged mode or a mounted Docker
-socket. Only dedicated app directories are given to that user. The state root is restricted to
-NAS administrators.
+## Migrating existing QPKG data
 
-## Stop, upgrade, uninstall
+Skip this section if the old package never created backups. Do not initialize new keys over old data.
 
-- **Stop/start:** use App Center. A stop allows up to 60 seconds before termination.
-  An interrupted backup remains incomplete; the next start marks it failed.
-- **Upgrade:** first create a verified bundle and separate configuration backup. Record the
-  current version. Install the new QPKG on the **same volume** through App Center.
-  Program files are replaced; state is outside the package directory.
-- **Uninstall:** stop/remove in App Center. Persistent state is intentionally retained.
-  Confirm recovery copies before manually deleting state. There is no automatic data-erasure.
-- **Reinstall:** use the same volume and original state/configuration. A new encryption key
-  cannot open existing backups.
-- **Move volume:** this is not automated migration. Stop first and follow the recovery guide
-  with a consistent copy.
+1. Stop/disable the old app. Confirm its container is stopped; record its three host mount paths
+   in Container Station Inspect or `docker inspect m365-nas-backup`.
+2. Preserve the entire original config and data, plus any exports. Alpha 1 normally used
+   `VOLUME/M365NASBackup/config`, `data`, and `exports`.
+3. Remove only the stopped old container after confirming the paths/copies. Keep the old
+   directories. Leave the old QPKG disabled so it cannot restart against the same data.
+4. In the supplied Compose replace the three volume entries with **absolute existing paths**:
 
-See [USAGE.md](USAGE.md) for errors and [RECOVERY.md](RECOVERY.md) before changing storage.
+   ```yaml
+    volumes:
+      - /ACTUAL/VOLUME/M365NASBackup/config:/config
+      - /ACTUAL/VOLUME/M365NASBackup/data:/data
+      - /ACTUAL/VOLUME/M365NASBackup/exports:/exports
+   ```
+
+   Use the paths you recorded, not the placeholder. Existing directories must be writable
+   by numeric UID/GID 10001. Remove the now-unused top-level `volumes:` definitions.
+5. In the original `settings.json`, while stopped, set `scheduler_enabled` and
+   `restore_enabled` to `false` for validation.
+6. Import/create the new application, sign in with the **original** admin token, and verify old
+   points before re-enabling schedules. The alpha 1 encrypted snapshot format is unchanged.
+
+Do not run old and new services simultaneously against the same repository.

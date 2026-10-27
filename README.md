@@ -3,10 +3,10 @@
 A self-hosted Exchange Online email backup application with adjustable recovery history,
 encrypted local storage, a recovery console, and Uptime Kuma monitoring.
 
-**Development alpha.** The QNAP edition is an installable `.qpkg` managed by App Center.
-It runs its bundled service through **QNAP Container Station**, a required dependency.
-A separate Docker deployment supports other systems. Each installation connects to one
-Microsoft 365 tenant; no organization-specific configuration is built in.
+**Development alpha.** One lightweight Docker service for QNAP Container Station or a Linux
+Docker host. The package includes a prebuilt image and Compose file; no build or registry
+login is needed on the NAS. The earlier QPKG wrapper is retired. Each installation connects
+to one Microsoft 365 tenant; no organization-specific configuration is built in.
 
 ## Start here
 
@@ -15,7 +15,8 @@ Microsoft 365 tenant; no organization-specific configuration is built in.
 - [Daily use, retention, restore, Uptime Kuma and troubleshooting](docs/USAGE.md)
 - [Second NAS copies, encryption keys and disaster recovery](docs/RECOVERY.md)
 - [Acceptance checks before relying on backups](docs/ACCEPTANCE.md)
-- [Optional Docker installation](docs/DOCKER-INSTALL.md)
+- [Portable Docker installation](docs/DOCKER-INSTALL.md)
+- [Memory/CPU limits and synthetic resource measurements](docs/RESOURCES.md)
 - [Restore research and API choices](docs/RESTORE-RESEARCH.md)
 
 ## What the alpha does
@@ -64,7 +65,7 @@ m365-backup --config ./config --data ./data serve
 
 On Windows use `.venv\Scripts\Activate.ps1`. The server defaults to localhost:8765.
 CI tests Python 3.12/3.13, exercises the browser with fake mail, builds/smoke-tests the container,
-and uses QNAP's QDK to produce the QPKG artifact. Read [AGENTS.md](AGENTS.md) and
+and checks the shipped Compose under a 512 MiB / one-CPU limit before packaging the image. Read [AGENTS.md](AGENTS.md) and
 [DEVELOPMENT.md](DEVELOPMENT.md) before continuing development.
 
 The repository remains private. Public release and an open-source license have not been approved.

@@ -9,12 +9,14 @@ Keep your existing backup until acceptance succeeds.
 
 ## Installation and persistence
 
-- Install the QPKG on the intended QTS/NAS model.
+- Import the image and create the Compose application on the intended QTS/NAS model.
 - Confirm Container Station runs it without privileged/root application access.
 - Open through a protected route; confirm unauthenticated data access is denied.
-- Save retention, stop/start in App Center, and verify settings survive.
+- Save retention, stop/start in Container Station, and verify settings survive.
 - Reboot and check startup order/access/state.
-- Confirm data sits outside the package directory on the selected volume.
+- Confirm config/data/exports persist in the intended named volumes or explicit local mounts.
+- Monitor memory/CPU during baseline and verification; record peaks and any restarts.
+- Recreate the container keeping its volume names and verify old recovery points survive.
 - On spare test state, check an upgrade/reinstall preserves recoverability.
 
 ## Real mail backup and restore

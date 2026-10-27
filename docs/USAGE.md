@@ -79,7 +79,8 @@ Add an **HTTP(s)** monitor:
 | Header | `Authorization: Bearer YOUR_MONITOR_TOKEN` |
 | Retries | 1–2 if appropriate for your alert policy |
 
-Read the separate token from `config/monitor.token`. In Kuma's headers field:
+Read the separate token using `docker exec m365-nas-backup cat /config/monitor.token`,
+or run `cat /config/monitor.token` in the container terminal. In Kuma's headers field:
 
 ```json
 {"Authorization":"Bearer YOUR_MONITOR_TOKEN"}
@@ -125,7 +126,9 @@ Settings never return private keys/tokens. Public certificates have authenticate
 | Symptom | Check |
 | --- | --- |
 | App will not start | Container Station running, free space, port conflicts, bind IP available |
-| App Center Open fails | Initial loopback binding; use tunnel/protected route |
+| Web shortcut fails | Default loopback binding; use the SSH tunnel or protected Tailscale/HTTPS route |
+| Container killed / exit 137 | Inspect OOM status and memory use; see [resource guidance](RESOURCES.md) |
+| Image pull/access denied | Import the bundled image first and disable forced image pulling |
 | 401 | Correct admin/monitor token and exact Bearer header |
 | `graph_401_…` | IDs, correct uploaded certificate, expiry, consent |
 | `graph_403_…` | Exact application permissions, consent, tenant policy |

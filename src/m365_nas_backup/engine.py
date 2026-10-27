@@ -113,33 +113,31 @@ class Engine:
                     changed.pop(iid, None)
                 else:
                     changed[iid] = item
-            ids = list(changed)
-            for offset in range(0, len(ids), 20):
+            # One message per export prevents a batch of large attachments filling NAS RAM.
+            for iid in changed:
                 self._space(settings)
-                group = ids[offset : offset + 20]
-                exported = graph.export(mailbox_id, group)
-                for iid in group:
-                    item = changed[iid]
-                    export = exported[iid]
-                    if item.get("changeKey") and item["changeKey"] != export["changeKey"]:
-                        raise ValueError("Item changed during export; retry the backup")
-                    description = graph.describe(mailbox_id, folder["id"], iid)
-                    if description.get("changeKey") != export["changeKey"]:
-                        raise ValueError("Item changed while reading metadata; retry the backup")
-                    subject = next(
-                        (
-                            p["value"]
-                            for p in description.get("singleValueExtendedProperties", [])
-                            if p.get("id", "").lower() == "string 0x0037"
-                        ),
-                        "",
-                    )
-                    state["items"][iid] = {
-                        "metadata": description,
-                        "subject": subject,
-                        "blob": self.repo.put(export["bytes"]),
-                        "changeKey": export["changeKey"],
-                    }
+                export = graph.export(mailbox_id, [iid])[iid]
+                item = changed[iid]
+                if item.get("changeKey") and item["changeKey"] != export["changeKey"]:
+                    raise ValueError("Item changed during export; retry the backup")
+                description = graph.describe(mailbox_id, folder["id"], iid)
+                if description.get("changeKey") != export["changeKey"]:
+                    raise ValueError("Item changed while reading metadata; retry the backup")
+                subject = next(
+                    (
+                        p["value"]
+                        for p in description.get("singleValueExtendedProperties", [])
+                        if p.get("id", "").lower() == "string 0x0037"
+                    ),
+                    "",
+                )
+                state["items"][iid] = {
+                    "metadata": description,
+                    "subject": subject,
+                    "blob": self.repo.put(export["bytes"]),
+                    "changeKey": export["changeKey"],
+                }
+                del export  # Release payload before fetching the next message.
             state["cursor"] = page.get("@odata.deltaLink", state["cursor"])
         if not state["cursor"]:
             raise ValueError("No durable delta checkpoint")

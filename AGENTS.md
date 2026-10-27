@@ -11,7 +11,7 @@ This is a general-purpose, single-tenant-per-installation app, not a DiCor-speci
 - Monitor backup freshness and every selected mailbox; process liveness is a separate check.
 - Document actual supported scope and distinguish automated tests from live Microsoft/QNAP acceptance.
 - Retention is adjustable; keep forever and a minimum snapshot count are supported. Preview destructive pruning.
-- Run pytest and ruff. CI builds the Linux container and QNAP QPKG; inspect results before claiming a package works.
+- Run pytest and ruff. CI builds the Docker image and tests the shipped Compose under NAS resource limits; inspect results before claiming a package works.
 - Checkpoint work in DEVELOPMENT.md and commit/push after meaningful milestones so usage-limit interruptions are recoverable.
 - Do not spawn other agents unless the user explicitly requests delegation.
 

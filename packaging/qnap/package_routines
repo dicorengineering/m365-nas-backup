@@ -1,7 +1,0 @@
-# The QDK installer removes only its own package directory. Backup state lives outside it.
-pkg_check_requirement() {
-    [ "$SYS_CPU_ARCH" = "x86_64" ] || err_log "This alpha requires an Intel/AMD 64-bit QNAP."
-}
-pkg_post_install() {
-    chmod 750 "$SYS_QPKG_DIR/service.sh"
-}
