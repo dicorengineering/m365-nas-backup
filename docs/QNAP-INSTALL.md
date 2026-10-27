@@ -72,7 +72,7 @@ If the image still does not appear, use an administrator SSH session to distingu
 from an import failure. First check without changing anything:
 
 ```sh
-docker image ls --all --filter reference='m365-nas-backup:*'
+docker image ls --all --filter reference='ghcr.io/dicorengineering/m365-nas-backup:*'
 docker version --format '{{.Server.Version}}'
 ```
 

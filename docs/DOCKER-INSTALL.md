@@ -8,8 +8,8 @@ QNAP users can follow the GUI procedure in [QNAP-INSTALL.md](QNAP-INSTALL.md).
 
 ## Install
 
-Download and unzip **M365Backup-0.1.0-alpha.3-docker-amd64.zip** from the private
-**Docker alpha 3** release (or the artifact from a successful Docker build Actions run).
+Download and unzip **M365Backup-0.1.0-alpha.3-docker-amd64** from the Artifacts section
+of a successful private **Test and build Docker alpha** Actions run.
 In that extracted directory:
 
 ```sh

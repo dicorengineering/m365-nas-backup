@@ -1,18 +1,33 @@
 # Restart checkpoint
 
-## Latest request: private docker pull (usage nearly exhausted)
-User wants docker pull instead of GUI importing; reported 5% usage remaining.
-NAS image list had no app tags. Container Station 3.1.2.1742. Implemented private GHCR publishing
-as final main-only CI step using ephemeral GITHUB_TOKEN (packages:write), private-repo/package
-checks, source label for inherited access, and a pull/ID check. compose uses
- ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.3 . No NAS token was collected.
-Need push/inspect next CI, fix any failure, verify registry-report private + pull success,
-deliver docker login/pull commands and docs/REGISTRY-INSTALL.md. Classic archive work is optional;
-last run 40435573680 still pending at start of registry change. Do not let optional packaging
-block the requested registry path. Keep repository/package PRIVATE. No real NAS/tenant actions.
-Read-only owner check confirms dicorengineering is a GitHub User (not Organization).
-Automation currently paused; retain checkpoint for resume after limits.
+## Latest checkpoint: stop and conserve usage (2026-10-27)
+User asked to wrap up because of excessive usage. Do not repeat checks or start more work
+without user direction. Automation remains paused.
 
+Private GHCR publishing and login/pull instructions are implemented and pushed.
+Current tested source candidate: 5b0e6410efc3f0851dbc0faaff7d52fdc8eea322.
+CI https://github.com/dicorengineering/m365-nas-backup/actions/runs/40513083327
+was still running at handoff: Python 3.12 passed; Python 3.13 unit tests (46), Ruff,
+dependency audit and JS syntax passed, but browser-install/test step was unusually slow.
+Job timeout is 15 minutes. Package job has not started. DO NOT claim image pull is ready.
+CI will publish automatically to private GHCR only after its tests pass, and verify a pull
+matches the tested image. No need for this chat to remain active while CI runs.
+
+If user resumes: inspect this run ONCE. If successful, read registry-report.json to confirm
+private visibility, linked repository and matching pull, then deliver the login/pull commands
+and docs/REGISTRY-INSTALL.md. If failed, inspect failed logs and fix the actual cause.
+Classic-archive run 40435573680 already passed; do not repeat archive investigation.
+No alpha 3 release has been created. Unpublished draft release notes are in ignored
+build/release-alpha-3.md. Current README directs to the Actions artifact instead.
+All Markdown files now validate as UTF-8; always use explicit encoding='utf-8' on Windows.
+A documentation-only follow-up corrects the QNAP image filter to the full GHCR name.
+
+Image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.3
+Repository dicorengineering/m365-nas-backup verified PRIVATE on 2026-10-27.
+Owner is a GitHub User, not Organization. Publishing uses ephemeral GITHUB_TOKEN
+(packages:write), private repository/package checks, source label and image-ID pull check.
+NAS login needs a classic PAT with read:packages; never collect that token in chat.
+No real NAS/tenant actions have been performed. Existing alpha 2 delivery below remains valid.
 
 Updated 2026-10-26. Active fix: alpha 2 image-import problem on Container Station 3.1.2.1742.
 
