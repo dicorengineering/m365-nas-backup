@@ -3,16 +3,14 @@
 import argparse
 import json
 import os
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import uvicorn
-from cryptography import x509
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.x509.oid import NameOID
 
 from .config import Configuration, atomic_write
+from .credentials import issue_certificate
 from .engine import Engine
 from .repository import Repository
 
@@ -26,25 +24,14 @@ def certificates(config: Configuration):
         if key_path.exists() or cert_path.exists():
             raise ValueError(f"Incomplete {purpose} certificate pair; restore its missing file")
         key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
-        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "M365 NAS Backup " + purpose)])
-        now = datetime.now(UTC)
-        cert = (
-            x509.CertificateBuilder()
-            .subject_name(name)
-            .issuer_name(name)
-            .public_key(key.public_key())
-            .serial_number(x509.random_serial_number())
-            .not_valid_before(now - timedelta(minutes=5))
-            .not_valid_after(now + timedelta(days=365))
-            .sign(key, hashes.SHA256())
-        )
+        cert = issue_certificate(key, purpose)
         atomic_write(
             key_path,
             key.private_bytes(
                 serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
             ),
         )
-        atomic_write(cert_path, cert.public_bytes(serialization.Encoding.PEM))
+        atomic_write(cert_path, cert)
 
 
 def main():

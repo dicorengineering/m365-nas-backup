@@ -7,6 +7,7 @@ import shutil
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from .comparison import compare_mailbox
 from .config import Configuration, Settings
 from .graph import AppToken, Graph, GraphError, UncertainWrite
 from .repository import Repository, utcnow
@@ -23,6 +24,7 @@ def graph_factory(settings: Settings, config: Configuration, restore=False):
 class Engine:
     def __init__(self, config: Configuration, repo: Repository, factory=graph_factory):
         self.config, self.repo, self.factory = config, repo, factory
+        self.comparison = None
 
     def backup(self) -> list[dict]:
         results = []
@@ -182,6 +184,21 @@ class Engine:
             "scheduler_enabled": settings.scheduler_enabled,
             "scope": "Email in primary/shared mailboxes; archive mailboxes excluded",
         }
+
+    def compare(self, snapshot_id):
+        with self.repo.lock.acquire(timeout=0):
+            self.comparison = None
+            manifest = self.repo.manifest(snapshot_id)
+            settings = self.config.load()
+            if manifest["user"].lower() not in {m.user.lower() for m in settings.mailboxes}:
+                raise ValueError("The source mailbox must be configured before comparing.")
+            graph = self.factory(settings, self.config)
+            try:
+                result = compare_mailbox(graph, manifest, snapshot_id)
+                self.comparison = result
+                return {k: v for k, v in result.items() if k != "items"}
+            finally:
+                graph.close()
 
     def restore_plan(self, snapshot_id: str, destination: str, selections: list[dict]) -> dict:
         if not selections or len(selections) > 1000:

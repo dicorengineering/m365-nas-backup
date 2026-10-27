@@ -35,13 +35,19 @@ def segment(value: str) -> str:
 
 
 class AppToken:
-    def __init__(self, settings: Settings, config: Configuration, restore: bool = False):
+    def __init__(
+        self,
+        settings: Settings,
+        config: Configuration,
+        restore: bool = False,
+        certificate_pem: bytes | None = None,
+    ):
         client_id = settings.restore_client_id if restore else settings.client_id
         if not settings.tenant_id or not client_id:
             raise ValueError("Microsoft tenant/application settings are incomplete")
         prefix = "restore" if restore else "backup"
         private_key = config.secret(prefix + "-private.pem").decode()
-        certificate = x509.load_pem_x509_certificate(config.secret(prefix + "-public.pem"))
+        certificate = x509.load_pem_x509_certificate(certificate_pem or config.secret(prefix + "-public.pem"))
         thumbprint = hashlib.sha1(certificate.public_bytes(serialization.Encoding.DER)).hexdigest()
         self.app = msal.ConfidentialClientApplication(
             client_id,

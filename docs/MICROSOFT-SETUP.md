@@ -63,18 +63,33 @@ different tenants. Save and run a manual backup before enabling scheduling.
 
 ## Certificates and renewal
 
-The app generates separate RSA certificates valid for one year. Private keys remain in
-`config/`. Record expiry dates from Entra and set an administrator reminder. Certificate-expiry
-alerts and a renewal wizard are not implemented.
+New installations generate separate one-year RSA certificates. They cannot be indefinite.
+Settings shows active/pending local expiry, and Overview warns within 45 days of local expiry.
+The expiration registered in Entra may be earlier; record and monitor that date separately.
+These console warnings do not change the Kuma backup-freshness response.
 
-To renew, stop the app, securely back up configuration, and move the **matching** public/private
-pair for that application to a protected location. Restarting generates a new pair only if both
-files are absent. Download/upload the new public certificate in Entra. Keep the old certificate
-there until authentication with the replacement succeeds, then remove it.
+To renew or request a longer local lifetime, use **Settings → Certificate renewal**:
 
-Do not replace `encryption.key`; the encryption key and application certificates are unrelated.
-For rollback, stop the app and restore the original matching pair. A single missing certificate
-file causes an error instead of silent regeneration.
+1. Back up configuration. Choose Backup or Restore and validity in days (default 365, maximum 3,650).
+2. Click **Prepare replacement**, then **Download replacement**. Existing authentication continues.
+3. Upload the replacement public PEM in the matching Entra app's **Certificates & secrets**.
+   Keep the old certificate registered. Check the expiration Entra actually accepts.
+4. Click **Test and activate replacement** and confirm. The app requests an authentication token
+   using that exact replacement before switching. If this fails, the current certificate stays active.
+5. Check Overview for success and run a backup (or an authorized test restore for the restore app).
+   Back up configuration again. Remove the old registration after successful validation.
+
+Longer local validity does not override Microsoft restrictions: [Microsoft's Graph credential
+registration guide](https://learn.microsoft.com/en-us/graph/applications-how-to-add-certificate)
+documents a maximum of one year for that registration method, and [tenant policies](https://learn.microsoft.com/en-us/graph/api/resources/keycredentialconfiguration?view=graph-rest-1.0)
+can restrict certificate lifetime further. Do not assume a ten-year PEM means ten years of Entra
+access. If Entra rejects the requested duration, prepare one with a permitted shorter lifetime.
+
+Renewal reuses that application's private key and leaves the unrelated backup encryption key
+unchanged. This is a validity renewal, not key rotation after compromise. The previous public
+certificate is saved as backup-previous-public.pem or restore-previous-public.pem; with the app
+stopped it can replace the active public file for rollback while its Entra registration remains
+valid. Never replace encryption.key. Private keys and tokens are never downloaded by these controls.
 
 ## Official references
 

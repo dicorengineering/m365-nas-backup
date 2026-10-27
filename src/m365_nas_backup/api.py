@@ -15,8 +15,11 @@ from filelock import FileLock, Timeout
 from pydantic import BaseModel, ConfigDict, Field
 
 from . import __version__
+from .comparison import page_comparison
 from .config import Configuration, Settings
+from .credentials import activate_certificate, certificate_status, prepare_certificate
 from .engine import Engine, error_code
+from .graph import AppToken
 from .repository import Repository
 
 
@@ -32,6 +35,16 @@ class RestoreRequest(BaseModel):
     destination: str = Field(min_length=1, max_length=320)
     selections: list[Selection] = Field(min_length=1, max_length=1000)
     confirmation: str | None = None
+
+
+class CertificateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    days: int = Field(default=365, ge=1, le=3650)
+
+
+class ActivateCertificateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    thumbprint: str = Field(pattern=r"^[A-F0-9]{40}$")
 
 
 class PruneRequest(BaseModel):
@@ -173,7 +186,17 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
 
     @app.get("/api/status", dependencies=[Depends(admin)])
     def status():
-        return {**engine.status(), "operation": runner.last, "busy": runner.busy, "version": __version__}
+        current_comparison = engine.comparison
+        return {
+            **engine.status(),
+            "operation": runner.last,
+            "busy": runner.busy,
+            "version": __version__,
+            "comparison": {k: v for k, v in current_comparison.items() if k != "items"}
+            if current_comparison
+            else None,
+            "certificates": certificate_status(config),
+        }
 
     @app.get("/api/settings", dependencies=[Depends(admin)])
     def settings():
@@ -187,12 +210,42 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
             config.save(settings)
         return settings.model_dump()
 
-    @app.get("/api/certificates/{purpose}", dependencies=[Depends(admin)])
-    def public_certificate(purpose: str):
+    @app.get("/api/certificates", dependencies=[Depends(admin)])
+    def certificates():
+        return certificate_status(config)
+
+    @app.post("/api/certificates/{purpose}/prepare", dependencies=[Depends(admin)])
+    def prepare(purpose: str, body: CertificateRequest):
+        with repo.lock.acquire(timeout=0):
+            return prepare_certificate(config, purpose, body.days)
+
+    @app.post("/api/certificates/{purpose}/activate", status_code=202, dependencies=[Depends(admin)])
+    def activate(purpose: str, body: ActivateCertificateRequest):
         if purpose not in ("backup", "restore"):
             raise HTTPException(404)
+
+        def operation():
+            with repo.lock.acquire(timeout=0):
+                return activate_certificate(
+                    config,
+                    purpose,
+                    body.thumbprint,
+                    lambda content: AppToken(
+                        config.load(), config, restore=purpose == "restore", certificate_pem=content
+                    )(),
+                )
+
+        return runner.start("certificate", operation)
+
+    @app.get("/api/certificates/{purpose}", dependencies=[Depends(admin)])
+    def public_certificate(purpose: str, pending: bool = False):
+        if purpose not in ("backup", "restore"):
+            raise HTTPException(404)
+        filename = purpose + ("-pending-public.pem" if pending else "-public.pem")
+        if not (config.directory / filename).exists():
+            raise HTTPException(404, "Prepare the certificate first")
         return Response(
-            config.secret(purpose + "-public.pem"),
+            config.secret(filename),
             media_type="application/x-pem-file",
             headers={"Content-Disposition": f'attachment; filename="{purpose}-public.pem"'},
         )
@@ -241,6 +294,34 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
             "items": matches[offset : offset + limit],
             "excluded_folders": manifest.get("excluded_folders", []),
         }
+
+    @app.post("/api/snapshots/{snapshot_id}/compare", status_code=202, dependencies=[Depends(admin)])
+    def compare(snapshot_id: str):
+        previous = (engine.comparison or {}).get("id")
+        result = runner.start("compare", lambda: engine.compare(snapshot_id))
+        return {**result, "previous_comparison_id": previous}
+
+    @app.get("/api/comparisons/{comparison_id}", dependencies=[Depends(admin)])
+    def comparison(
+        comparison_id: str,
+        status: str = "differences",
+        q: str = Query("", max_length=200),
+        offset: int = Query(0, ge=0),
+        limit: int = Query(100, ge=1, le=200),
+    ):
+        return page_comparison(engine.comparison, comparison_id, status, q, offset, limit)
+
+    @app.get("/api/comparisons/{comparison_id}/selection", dependencies=[Depends(admin)])
+    def comparison_selection(
+        comparison_id: str, status: str = "differences", q: str = Query("", max_length=200)
+    ):
+        cached = engine.comparison
+        data = page_comparison(cached, comparison_id, status, q, limit=len(cached["items"]) if cached else 0)
+        if data["selectable"] > 1000:
+            raise HTTPException(400, "More than 1000 messages match. Narrow the filter or select one page.")
+        return [
+            {"folder_id": r["folder_id"], "item_id": r["item_id"]} for r in data["items"] if r["restorable"]
+        ]
 
     @app.post("/api/snapshots/{snapshot_id}/verify", status_code=202, dependencies=[Depends(admin)])
     def verify(snapshot_id: str):

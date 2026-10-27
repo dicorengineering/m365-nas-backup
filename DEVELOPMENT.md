@@ -1,5 +1,31 @@
 # Restart checkpoint
 
+## Active alpha 4 work (2026-10-27)
+User reports backups working on the NAS; asks for live mailbox differences and bulk restore,
+and asks whether certificate expiry can be indefinite. Authorized software update only; no tenant
+or NAS actions. Preserve user's configured web port and named volumes during upgrade.
+
+Implemented read-only current source mailbox scan with missing/changed/moved/new/unchanged
+filters, page/all-filtered selection (up to 1000), automatic comparison on recovery point selection,
+backup/current folder columns and scan timestamp. No exports or durable cursor writes in compare.
+Failed/incomplete scans publish no result. Metadata changeKey differences include property changes;
+changed identities may appear missing/new. Restores still create a new recovery folder.
+Certificate settings now show expiry and 45-day console warnings. Staged validity renewal reuses
+private key, downloads only public PEM, tests Entra token acquisition before atomic activation,
+and retains previous public PEM. Local validity configurable 1–3650 days, default365; Microsoft
+Graph registration docs specify a one-year limit and tenant policy may restrict further. Never
+promise indefinite/ten-year Entra validity. No changes to real registrations or encryption keys.
+54 local tests passed; Ruff/JS syntax passed. CI browser flow extended for diff bulk restore and
+certificate staging/download. Await updated CI/container test and private pull before delivery.
+Alpha4 tag: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.4
+Previous alpha3 CI40513083327 passed tests/resource checks and uploaded the image privately,
+but failed its repository-link metadata assertion. Owner could pull and run it. Publisher now
+requires private visibility, rejects an explicit link to a different repository, reports an absent
+association without failing, and verifies pull/image-ID. No visibility or permission changes.
+No alpha4 release yet. CI success provides image and offline artifact. Keep automation paused.
+Do not repeat archive investigation or add unrelated features. Inspect CI once after push,
+fix actual failures, record final image digest and upgrade steps. Keep repo/package PRIVATE.
+
 ## Latest checkpoint: stop and conserve usage (2026-10-27)
 User asked to wrap up because of excessive usage. Do not repeat checks or start more work
 without user direction. Automation remains paused.

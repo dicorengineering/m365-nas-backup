@@ -42,14 +42,23 @@ but each recovery point has its own encrypted manifest.
 ## Browse and restore email
 
 1. In **Recovery**, choose the source mailbox/date from **Recovery point**. Use **Load older recovery points** to access history beyond the first 1,000 points.
-2. Search by subject/folder. Body search is not implemented.
-3. Select messages; selection persists while paging/searching within the same point.
+2. A read-only comparison scans the current **source** mailbox's email metadata. It does not create a backup or change any mail. If another operation is busy, use **Compare with current mailbox** once it finishes.
+3. Choose **Missing**, **Changed**, **Moved**, **Only in current mailbox**, or **Everything**. Search subject/folder, then use **Select all matching differences** (across pages) or **Select this page**. You can deselect individual messages. Selection persists while paging/filtering; **Clear selection** resets it. New messages have no version in this recovery point and cannot be selected.
 4. Choose a destination from the explicitly configured mailboxes.
 5. Click **Review restore** and confirm destination/count.
 6. Confirm; follow the latest operation in Overview.
 7. In Outlook, find **M365 Recovery YYYY-MM-DD HHMMSS …** in the destination.
    Source folders are separated into distinct children with short identifiers.
 8. Check content/attachments before moving recovered mail into normal folders.
+
+Comparison shows the source mailbox and scan completion time. Changing the restore destination does
+not compare that different mailbox. The default hides unchanged items. Changed means Exchange's
+version changed, including flags/properties; it is not a byte-level body/attachment diff. A move is
+recognized only while Microsoft preserves the item ID. Changed identities, including prior restored
+copies, may appear as missing plus new. No subject-based guessing or duplicate suppression is used.
+The scan is not an atomic instant; refresh before selection if mail is changing. Failed scans publish
+no partial result. Only one comparison is retained in service memory; restart or another comparison
+replaces it. It downloads metadata, not attachment payloads, and does not advance backup cursors.
 
 Restore must be enabled and the separate restore app configured. Each operation supports up to
 1,000 selected items. Existing items are not overwritten. Restored items have new IDs.
@@ -114,6 +123,12 @@ All `/api/*` routes require the administrator bearer token.
 | POST `/api/retention/apply` | Send `{"confirmation":"…"}` |
 | POST `/api/restore/preview` | Send snapshot_id, destination, selections |
 | POST `/api/restore` | Same fields plus preview confirmation |
+| POST `/api/snapshots/{id}/compare` | Start read-only comparison with the current source mailbox |
+| GET `/api/comparisons/{id}` | Paged differences; status, q, offset, limit |
+| GET `/api/comparisons/{id}/selection` | All matching restorable IDs, maximum 1,000 |
+| GET `/api/certificates` | Local active/pending certificate expiry and thumbprints |
+| POST `/api/certificates/{purpose}/prepare` | Prepare a replacement with days (1–3,650) |
+| POST `/api/certificates/{purpose}/activate` | Test and activate the specified pending thumbprint |
 | GET `/api/restores` | Persistent restore records |
 
 Selections contain `folder_id`/`item_id` from the browse response. Confirmation binds the plan;

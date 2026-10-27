@@ -32,7 +32,7 @@ and startup on Docker 24.0.9. This does not emulate the proprietary Container St
 - Image size and the applied CPU/memory limits.
 
 The synthetic test performs a baseline of 2,000 items at 64 KiB and two at 16 MiB, an incremental
-change/deletion, and verification of both retained snapshots. It exercises the real Graph
+change/deletion, verification of both retained snapshots, and comparison with live metadata. It exercises the real Graph
 JSON/base64 decoding, encryption, compression, disk writes and delta handling using generated
 responses. Generating those responses also uses test-process RAM. There are no tenant credentials.
 
@@ -41,7 +41,7 @@ The report's runtime is not a predicted NAS backup time.
 
 ## Practical limits and tuning
 
-Full mailbox manifests are held in memory. Large item counts, unusually large messages and
+Full mailbox manifests and the latest comparison metadata are held in memory. Large item counts, unusually large messages and
 simultaneous console browsing can need more RAM than the synthetic workload. Single-message
 export still requires encoded/decoded buffers. The 512 MiB ceiling is a starting point, not
 an established maximum mailbox size.

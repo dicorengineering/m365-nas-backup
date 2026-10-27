@@ -58,11 +58,28 @@ def main():
                 expect(page.get_by_role("status")).to_have_text("Settings saved.")
                 assert config.load().retention.days == 90
                 assert config.load().retention.minimum_snapshots == 3
+                page.locator("#certificate-days").fill("3650")
+                page.get_by_role("button", name="Prepare replacement", exact=True).click()
+                expect(page.get_by_role("status")).to_contain_text("Replacement prepared")
+                expect(page.locator("#certificate-status")).to_contain_text("replacement until")
+                with page.expect_download() as download_info:
+                    page.get_by_role("button", name="Download replacement", exact=True).click()
+                downloaded = Path(download_info.value.path()).read_bytes()
+                assert downloaded == config.secret("backup-pending-public.pem")
+                assert b"PRIVATE KEY" not in downloaded
                 page.screenshot(path=str(output / "settings.png"), full_page=True)
+                # Compare a deleted original and a live-only message; bulk selection must
+                # restore only the backed-up original, leaving the new message untouched.
+                original = graph.state["inbox"].pop("one")
+                graph.state["inbox"]["later"] = {**original, "subject": "New mail"}
                 page.get_by_role("button", name="Recovery", exact=True).click()
                 page.locator("#snapshot").select_option(repo.snapshots()[0]["id"])
                 expect(page.locator("#item-rows")).to_contain_text("Invoice")
-                page.get_by_label("Select Invoice").check()
+                expect(page.locator("#comparison-summary")).to_contain_text("1 missing", timeout=15000)
+                expect(page.get_by_label("Select New mail")).to_be_disabled()
+                page.get_by_role("button", name="Select all matching differences", exact=True).click()
+                expect(page.get_by_label("Select Invoice")).to_be_checked()
+                page.screenshot(path=str(output / "comparison.png"), full_page=True)
                 page.get_by_role("button", name="Review restore", exact=True).click()
                 expect(page.locator("#review")).to_be_visible()
                 expect(page.locator("#review-body")).to_contain_text("demo@example.com")

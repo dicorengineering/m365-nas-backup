@@ -52,7 +52,13 @@ def main():
                 )
             start = int(request.url.params.get("start", 0))
             end = min(start + 200, TOTAL)
-            page = {"value": [{"id": str(i), "changeKey": "v1"} for i in range(start, end)]}
+            page = {
+                "value": [
+                    {"id": str(i), "changeKey": "v2" if revision == 2 and i == 0 else "v1"}
+                    for i in range(start, end)
+                    if not (revision == 2 and i == 1)
+                ]
+            }
             page["@odata.nextLink" if end < TOTAL else "@odata.deltaLink"] = (
                 DELTA + "?start=" + str(end) if end < TOTAL else DELTA + "?checkpoint=1"
             )
@@ -108,12 +114,14 @@ def main():
         assert repo.snapshots()[0]["item_count"] == TOTAL - 1
         repo.verify(first["snapshot"])
         repo.verify(second["snapshot"])
+        comparison = engine.compare(first["snapshot"])
+        assert comparison["counts"] == {"missing": 1, "changed": 1, "unchanged": TOTAL - 2}
         assert engine.status()["healthy"]
         assert max_batch == 1
     print(
         json.dumps(
             {
-                "scenario": "baseline, incremental change/deletion, verification of both retained points",
+                "scenario": "baseline, incremental change/deletion, verification, live metadata comparison",
                 "small_items": SMALL_COUNT,
                 "small_item_bytes": 64 * 1024,
                 "large_items": 2,

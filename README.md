@@ -12,7 +12,7 @@ to one Microsoft 365 tenant; no organization-specific configuration is built in.
 
 **[Install with docker pull](docs/REGISTRY-INSTALL.md)** — preferred for QNAP.
 
-Alpha 3 registry publishing is awaiting [build validation](https://github.com/dicorengineering/m365-nas-backup/actions/runs/40513083327). After a successful run, the optional offline bundle is available under its Artifacts. Unzip and open INSTALL.md.
+Docker alpha 4 adds live mailbox comparisons, bulk restore selection and staged certificate renewal. Use the image tag in compose.yaml after its [build validation](https://github.com/dicorengineering/m365-nas-backup/actions) succeeds. Optional offline bundles are under the successful run’s Artifacts.
 
 - **QNAP users:** [Installation and first access](docs/QNAP-INSTALL.md)
 - [Microsoft 365 application setup](docs/MICROSOFT-SETUP.md)
@@ -30,7 +30,9 @@ Alpha 3 registry publishing is awaiting [build validation](https://github.com/di
 - Keeps independent recovery points; deleted or changed mail remains in older retained points.
 - Configurable retention days, minimum points per mailbox, keep forever, and optional automatic
   cleanup. Manual cleanup requires a preview and confirmation.
+- Compares a recovery point with the current source mailbox and selects missing/changed messages in bulk.
 - Restores selected items into a **new recovery folder**, using a separate restore application.
+- Shows certificate expiry and prepares/tests replacements before switching authentication.
 - Encrypts exported items/manifests using AES-256-GCM, deduplicates unchanged content,
   and checks object integrity during verification and recovery.
 - Reports per-mailbox freshness/failures through an authenticated HTTP endpoint.
