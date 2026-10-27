@@ -15,7 +15,8 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
-COMPAT_ENGINE = "docker:27.1.2-dind"
+# Docker 25+ also exports OCI layout from its classic store. Pin a pre-25 exporter.
+COMPAT_ENGINE = "docker:24.0.9-dind"
 
 
 def docker(*args):

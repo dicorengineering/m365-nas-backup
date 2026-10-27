@@ -25,7 +25,7 @@ container runtime's overhead. No image compilation is performed on the NAS.
 
 Each package includes `resource-report.json` from its Linux CI run. The same distributed archive
 is imported before the resource check; `import-report.json` records an additional clean import
-and startup on Docker 27.1.2. This does not emulate the proprietary Container Station UI. It records:
+and startup on Docker 24.0.9. This does not emulate the proprietary Container Station UI. It records:
 - Idle web service resident memory (RSS) and Docker's memory reading.
 - Peak RSS for the synthetic backup process alongside the running web service.
 - Whole-container peak including filesystem cache and any out-of-memory kills.

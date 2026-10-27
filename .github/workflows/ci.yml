@@ -50,7 +50,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build portable container
         run: docker build --tag m365-nas-backup:0.1.0-alpha.3 .
-      - name: Export classic archive and test fresh import on Docker 27
+      - name: Export classic archive and test fresh import on Docker 24
         run: python3 -m scripts.package_image
       - name: Test shipped Compose, persistence and resource limits with synthetic mail
         run: python3 -m scripts.container_smoke

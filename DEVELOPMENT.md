@@ -6,11 +6,16 @@ Updated 2026-10-26. Active fix: alpha 2 image-import problem on Container Statio
 User reports successful import notification but no image listed. Confirmed alpha 2 archive has
 OCI layout plus Docker manifest; this is a possible GUI compatibility issue, not a proven root cause.
 Previous tests did not load the exported archive. Preparing alpha 3 using a classic Docker-store
-export and clean archive import/list/start tests on an isolated Docker 27.1.2 engine, followed
+export and clean archive import/list/start tests on an isolated Docker 24.0.9 engine, followed
 by the existing modern-engine Compose/resource tests using that same archive. No runtime feature
 changes; version only. Local tests passed (46) and CI test/browser jobs passed. First packaging
 run 40434769371 failed transferring source archive into the nested test daemon; use stdin
-streaming for docker load to avoid that staging-path dependency. Need inspect next CI,
+streaming for docker load to avoid that staging-path dependency. Second run 40435120838
+proved the newer layout imports on Docker 27, but its exporter also writes OCI format. Confirmed
+Moby 24.0.9 source uses legacy layer.tar/config.json layout; pin that export/test helper.
+User's NAS read-only image list returned no m365-nas-backup tags, so the expected image really
+is absent from the engine, not simply hidden in the GUI. Root cause still not proven.
+Need inspect next CI,
 download/verify package, publish
 private prerelease, update checkpoint. Do not claim the QNAP UI is fixed before user confirmation.
 Automation remains paused. Do not deploy to NAS or touch tenant. Older delivery details below.
