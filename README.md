@@ -5,10 +5,12 @@ encrypted local storage, a recovery console, and Uptime Kuma monitoring.
 
 **Development alpha.** One lightweight Docker service for QNAP Container Station or a Linux
 Docker host. The package includes a prebuilt image and Compose file; no build or registry
-login is needed on the NAS. The earlier QPKG wrapper is retired. Each installation connects
+login is needed for offline installation. Private registry pulls are also supported. The earlier QPKG wrapper is retired. Each installation connects
 to one Microsoft 365 tenant; no organization-specific configuration is built in.
 
 ## Start here
+
+**[Install with docker pull](docs/REGISTRY-INSTALL.md)** — preferred for QNAP.
 
 [Download Docker alpha 3](https://github.com/dicorengineering/m365-nas-backup/releases/tag/v0.1.0-alpha.3) (private prerelease). Unzip and open INSTALL.md.
 

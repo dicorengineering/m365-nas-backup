@@ -1,5 +1,19 @@
 # Restart checkpoint
 
+## Latest request: private docker pull (usage nearly exhausted)
+User wants docker pull instead of GUI importing; reported 5% usage remaining.
+NAS image list had no app tags. Container Station 3.1.2.1742. Implemented private GHCR publishing
+as final main-only CI step using ephemeral GITHUB_TOKEN (packages:write), private-repo/package
+checks, source label for inherited access, and a pull/ID check. compose uses
+ ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.3 . No NAS token was collected.
+Need push/inspect next CI, fix any failure, verify registry-report private + pull success,
+deliver docker login/pull commands and docs/REGISTRY-INSTALL.md. Classic archive work is optional;
+last run 40435573680 still pending at start of registry change. Do not let optional packaging
+block the requested registry path. Keep repository/package PRIVATE. No real NAS/tenant actions.
+Read-only owner check confirms dicorengineering is a GitHub User (not Organization).
+Automation currently paused; retain checkpoint for resume after limits.
+
+
 Updated 2026-10-26. Active fix: alpha 2 image-import problem on Container Station 3.1.2.1742.
 
 ## Current fix checkpoint

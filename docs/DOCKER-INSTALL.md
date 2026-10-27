@@ -1,5 +1,8 @@
 # Portable Docker installation
 
+**Preferred: [pull from the private registry](REGISTRY-INSTALL.md).** This avoids the archive importer.
+The instructions below cover optional offline installation.
+
 Use the prebuilt **linux/amd64** package on a Docker Engine host with Compose.
 QNAP users can follow the GUI procedure in [QNAP-INSTALL.md](QNAP-INSTALL.md).
 
@@ -12,7 +15,7 @@ In that extracted directory:
 ```sh
 sha256sum -c SHA256SUMS
 docker load --input m365-nas-backup-0.1.0-alpha.3-amd64.tar.gz
-docker image inspect m365-nas-backup:0.1.0-alpha.3 --format '{{.Architecture}} {{.Os}}'
+docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.3 --format '{{.Architecture}} {{.Os}}'
 docker compose up -d --pull never
 docker compose exec backup cat /config/admin.token
 ```
@@ -82,7 +85,7 @@ repository or credentials directory between running services.
 On a build machine, check out the intended revision and run:
 
 ```sh
-docker build -t m365-nas-backup:0.1.0-alpha.3 .
+docker build -t ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.3 .
 docker compose up -d --pull never
 ```
 

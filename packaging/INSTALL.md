@@ -1,6 +1,8 @@
 # M365 NAS Backup — Docker alpha 3
 
-Start with [QNAP installation](docs/QNAP-INSTALL.md) or
+Prefer [private registry pull](docs/REGISTRY-INSTALL.md) to avoid the archive importer.
+
+For offline use, start with [QNAP installation](docs/QNAP-INSTALL.md) or
 [Linux Docker installation](docs/DOCKER-INSTALL.md).
 
 The image archive is prebuilt. Import it, then use the supplied compose.yaml.

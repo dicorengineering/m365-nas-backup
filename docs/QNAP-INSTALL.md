@@ -1,5 +1,8 @@
 # QNAP installation — Docker alpha 3
 
+**Preferred: [pull from the private registry](REGISTRY-INSTALL.md).** This avoids the archive importer.
+The instructions below cover optional offline installation.
+
 M365 NAS Backup now runs directly in **Container Station** as one Docker container.
 The QPKG wrapper has been retired. Use this guide instead of the alpha 1 App Center installer.
 
@@ -53,7 +56,7 @@ the new application. A name conflict is expected if one remains.
 In **Container Station → Images → Import**, choose the downloaded
 `m365-nas-backup-0.1.0-alpha.3-amd64.tar.gz`. Wait for the import to finish.
 Do not select the optional **Import and Create** shortcut; the next step supplies the storage
-and resource settings. Confirm `m365-nas-backup:0.1.0-alpha.3` appears in Images.
+and resource settings. Confirm `ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.3` appears in Images.
 
 Import through **Images**, not the container-import screen. If using SSH instead:
 `docker load --input /PATH/TO/m365-nas-backup-0.1.0-alpha.3-amd64.tar.gz`.
@@ -79,11 +82,11 @@ to a known NAS folder and load it directly (replace the path):
 
 ```sh
 docker load --input /ACTUAL/NAS/PATH/m365-nas-backup-0.1.0-alpha.3-amd64.tar.gz
-docker image inspect m365-nas-backup:0.1.0-alpha.3 --format '{{.Id}} {{.Architecture}} {{.Os}}'
+docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.3 --format '{{.Id}} {{.Architecture}} {{.Os}}'
 ```
 
 Use `load`, not `import`: an image archive includes its startup configuration. Success should
-report `Loaded image: m365-nas-backup:0.1.0-alpha.3`; inspection should show an ID, `amd64 linux`.
+report `Loaded image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.3`; inspection should show an ID, `amd64 linux`.
 If this fails, capture that exact error plus the Container Station version. Do not reinstall
 Container Station, prune volumes or delete other containers to troubleshoot this image.
 

@@ -1,7 +1,7 @@
-# Import the bundled image before starting. No registry login or NAS build required.
+# Pull the private image first; see docs/REGISTRY-INSTALL.md. An offline archive is also available.
 services:
   backup:
-    image: m365-nas-backup:0.1.0-alpha.3
+    image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.3
     container_name: m365-nas-backup
     user: "10001:10001"
     ports:

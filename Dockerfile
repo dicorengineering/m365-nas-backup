@@ -1,4 +1,5 @@
 FROM python:3.13-slim-bookworm
+LABEL org.opencontainers.image.source="https://github.com/dicorengineering/m365-nas-backup"
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
 COPY requirements.txt pyproject.toml ./

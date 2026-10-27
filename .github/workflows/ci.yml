@@ -43,24 +43,32 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
   package:
+    permissions:
+      contents: read
+      packages: write
     needs: test
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Build portable container
-        run: docker build --tag m365-nas-backup:0.1.0-alpha.3 .
+        run: docker build --tag ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.3 .
       - name: Export classic archive and test fresh import on Docker 24
         run: python3 -m scripts.package_image
       - name: Test shipped Compose, persistence and resource limits with synthetic mail
         run: python3 -m scripts.container_smoke
+      - name: Publish private image and verify registry pull
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 -m scripts.publish_image
       - name: Bundle prebuilt image and instructions
         run: |
           mkdir -p dist/docs
           cp compose.yaml dist/
           cp packaging/INSTALL.md dist/INSTALL.md
           cp docs/*.md dist/docs/
-          cp build/resource-report.json build/import-report.json dist/
+          cp build/*-report.json dist/
           printf '%s\n' "${{ github.sha }}" > dist/SOURCE-COMMIT.txt
           (cd dist && sha256sum *.tar.gz compose.yaml INSTALL.md *-report.json SOURCE-COMMIT.txt docs/*.md > SHA256SUMS)
       - uses: actions/upload-artifact@v4
