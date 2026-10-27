@@ -102,3 +102,32 @@ def test_async_comparison_result_stays_out_of_status_payload(completed):
         assert status["comparison"]["snapshot_id"] == snapshot
         assert "items" not in status["comparison"]
         assert "Invoice" not in str(status)
+
+
+def test_comparison_finishing_during_status_read_is_visible(completed, monkeypatch):
+    import threading
+
+    config, repo, _, engine = completed
+    snapshot = repo.snapshots()[0]["id"]
+    release, finished = threading.Event(), threading.Event()
+    original_compare, original_status = engine.compare, engine.status
+
+    def compare(snapshot_id):
+        assert release.wait(5)
+        result = original_compare(snapshot_id)
+        finished.set()
+        return result
+
+    def status():
+        result = original_status()
+        release.set()
+        assert finished.wait(5)
+        return result
+
+    monkeypatch.setattr(engine, "compare", compare)
+    monkeypatch.setattr(engine, "status", status)
+    with TestClient(create_app(config, repo, engine)) as client:
+        headers = {"Authorization": "Bearer " + config.token()}
+        client.post("/api/snapshots/" + snapshot + "/compare", json={}, headers=headers)
+        response = client.get("/api/status", headers=headers).json()
+        assert response["comparison"]["snapshot_id"] == snapshot

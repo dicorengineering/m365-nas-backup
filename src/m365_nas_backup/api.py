@@ -186,17 +186,22 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
 
     @app.get("/api/status", dependencies=[Depends(admin)])
     def status():
-        current_comparison = engine.comparison
-        return {
-            **engine.status(),
-            "operation": runner.last,
-            "busy": runner.busy,
-            "version": __version__,
-            "comparison": {k: v for k, v in current_comparison.items() if k != "items"}
-            if current_comparison
-            else None,
-            "certificates": certificate_status(config),
-        }
+        health = engine.status()
+        credentials = certificate_status(config)
+        # Read operation/comparison state together after potentially slow disk reads.
+        # Otherwise a completed job can be paired with its earlier empty comparison.
+        with runner.guard:
+            current_comparison = engine.comparison
+            return {
+                **health,
+                "operation": runner.last,
+                "busy": runner.busy,
+                "version": __version__,
+                "comparison": {k: v for k, v in current_comparison.items() if k != "items"}
+                if current_comparison
+                else None,
+                "certificates": credentials,
+            }
 
     @app.get("/api/settings", dependencies=[Depends(admin)])
     def settings():
