@@ -8,7 +8,10 @@ OCI layout plus Docker manifest; this is a possible GUI compatibility issue, not
 Previous tests did not load the exported archive. Preparing alpha 3 using a classic Docker-store
 export and clean archive import/list/start tests on an isolated Docker 27.1.2 engine, followed
 by the existing modern-engine Compose/resource tests using that same archive. No runtime feature
-changes; version only. Need local Ruff/pytest, push/inspect CI, download/verify package, publish
+changes; version only. Local tests passed (46) and CI test/browser jobs passed. First packaging
+run 40434769371 failed transferring source archive into the nested test daemon; use stdin
+streaming for docker load to avoid that staging-path dependency. Need inspect next CI,
+download/verify package, publish
 private prerelease, update checkpoint. Do not claim the QNAP UI is fixed before user confirmation.
 Automation remains paused. Do not deploy to NAS or touch tenant. Older delivery details below.
 

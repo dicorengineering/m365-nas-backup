@@ -87,8 +87,8 @@ def main():
         else:
             raise RuntimeError("Compatibility daemon did not start")
         version = docker(*remote, "version", "--format", "{{.Server.Version}}")
-        docker("cp", str(incoming), daemon + ":/tmp/source.tar")
-        docker(*remote, "load", "--input", "/tmp/source.tar")
+        with incoming.open("rb") as source:
+            subprocess.run(["docker", "exec", "-i", daemon, "docker", "load"], stdin=source, check=True)
         assert docker(*remote, "image", "inspect", "--format", "{{.Id}}", image) == image_id
         # Let Docker's classic store create the compatibility layout; don't hand-edit layers.
         with gzip.open(destination, "wb", compresslevel=1) as target:
@@ -103,8 +103,8 @@ def main():
             ["docker", *remote, "image", "inspect", image], capture_output=True, check=False
         )
         assert missing.returncode != 0
-        docker("cp", str(destination), daemon + ":/tmp/distribution.tar.gz")
-        docker(*remote, "load", "--input", "/tmp/distribution.tar.gz")
+        with destination.open("rb") as source:
+            subprocess.run(["docker", "exec", "-i", daemon, "docker", "load"], stdin=source, check=True)
         assert docker(*remote, "image", "inspect", "--format", "{{.Id}}", image) == image_id
         assert image in docker(*remote, "image", "ls", "--format", "{{.Repository}}:{{.Tag}}").splitlines()
         docker(
