@@ -11,6 +11,7 @@ New implementation:
 - Same-changeKey delta entries skip payload/metadata downloads; folder 410 reset re-enumerates
   membership but reuses matching prior payloads. Completed snapshots/cursors remain immutable.
 - Persisted transfer statistics in each new manifest, returned in operation/items API.
+  Reuse immutable metadata entries; count directly without duplicate mailbox-sized maps.
 - Daily/12h/custom scheduling; automatic overdue grace; too-short legacy threshold normalizes
   to automatic. Due time derives from persisted last attempt completion; restart preserves timing.
 - Mailbox-first recovery, 200-point pages, explicit optional comparison, bulk saved selection.
@@ -28,7 +29,9 @@ Browser test now exercises setup/password login, reload, daily schedule, mailbox
 no automatic live comparison, bulk selection and restore against fake mail.
 Container smoke now checks account/settings persistence across recreation and disables old token.
 Resource fixture now asserts changed-only downloads and zero downloads on replay.
-NEXT: inspect diff, commit/push, inspect Linux CI (browser, two Python versions, Docker/resource,
+First CI 40781197151 passed both Python versions, audit and browser. Cancelled before publication
+to reduce metadata index copying/counting memory. Retest incremental cases and push follow-up.
+NEXT: inspect Linux CI (browser, two Python versions, Docker/resource,
 private GHCR publication/pull). Do not claim alpha6 delivered until those pass.
 Then update this checkpoint with tested source, run URL and digest; docs-only [skip ci] commit.
 No live Microsoft or NAS testing performed by this agent.

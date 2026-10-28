@@ -1,6 +1,5 @@
 """Backup and restore orchestration. Failed runs never advance durable cursors."""
 
-import copy
 import hashlib
 import json
 import shutil
@@ -121,28 +120,31 @@ class Engine:
         if not manifest["folders"]:
             raise ValueError("No email folders were discovered; refusing an empty baseline")
         manifest["captured_finished"] = utcnow()
-        before = {
-            (fid, iid): item["changeKey"]
-            for fid, f in (previous or {}).get("folders", {}).items()
-            for iid, item in f["items"].items()
-        }
-        after = {
-            (fid, iid): item["changeKey"]
-            for fid, f in manifest["folders"].items()
-            for iid, item in f["items"].items()
-        }
-        manifest["statistics"].update(
-            new_items=len(after.keys() - before.keys()),
-            deleted_items=len(before.keys() - after.keys()),
-            changed_items=sum(before[key] != after[key] for key in before.keys() & after.keys()),
-            unchanged_items=sum(before[key] == after[key] for key in before.keys() & after.keys()),
-        )
+        counts = {"new_items": 0, "deleted_items": 0, "changed_items": 0, "unchanged_items": 0}
+        old_folders = (previous or {}).get("folders", {})
+        # Count directly against existing indexes, without a second pair of
+        # mailbox-sized maps/sets on memory-constrained NAS devices.
+        for fid, current in manifest["folders"].items():
+            older = old_folders.get(fid, {}).get("items", {})
+            for iid, item in current["items"].items():
+                if iid not in older:
+                    counts["new_items"] += 1
+                elif item["changeKey"] == older[iid]["changeKey"]:
+                    counts["unchanged_items"] += 1
+                else:
+                    counts["changed_items"] += 1
+        for fid, older in old_folders.items():
+            current = manifest["folders"].get(fid, {}).get("items", {})
+            counts["deleted_items"] += sum(iid not in current for iid in older["items"])
+        manifest["statistics"].update(counts)
         return manifest
 
     def _folder(self, graph, mailbox_id, folder, old, settings, statistics, reset=False):
         state = {
             "metadata": folder,
-            "items": copy.deepcopy(old["items"]) if old and not reset else {},
+            # Items are immutable here: edits replace entries instead of mutating
+            # their metadata. Copy membership only, sharing unchanged descriptors.
+            "items": dict(old["items"]) if old and not reset else {},
             "cursor": None,
         }
         cursor = old["cursor"] if old and not reset else None
