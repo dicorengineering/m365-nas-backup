@@ -120,7 +120,7 @@ is needed when that metadata contains the subject. Truly absent/empty subjects r
 
 1. In **Recovery**, choose **Email account**, then a dated **Recovery point**. Only that account’s backups are listed. **Load older recovery points** adds the next 200. Saved contents load without contacting Microsoft.
 2. Optionally click **Compare with current mailbox** to scan the current **source** mailbox’s metadata. It does not create a backup or change any mail. You can select saved messages without running a comparison.
-3. Choose **Missing**, **Changed**, **Moved**, **Only in current mailbox**, or **Everything**. Search subject/folder, then use **Select all matching messages** (across pages) or **Select this page**. You can deselect individual messages. Selection persists while paging/filtering; **Clear selection** resets it. New messages have no version in this recovery point and cannot be selected.
+3. After comparing, choose **Missing**, **Changed**, **Moved**, **Only in current mailbox**, or **Everything**. Without comparing, the list shows saved messages. Search subject/folder, then use **Select all matching messages** (across pages) or **Select this page**. You can deselect individual messages. Selection persists while paging/filtering; **Clear selection** resets it. New messages have no version in this recovery point and cannot be selected.
 4. Choose a destination from the explicitly configured mailboxes.
 5. Click **Review restore** and confirm destination/count.
 6. Confirm; follow the latest operation in Overview.

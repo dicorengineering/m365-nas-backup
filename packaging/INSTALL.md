@@ -1,4 +1,4 @@
-# M365 NAS Backup — Docker alpha 5
+# M365 NAS Backup — Docker installation
 
 Prefer [private registry pull](docs/REGISTRY-INSTALL.md) to avoid the archive importer.
 

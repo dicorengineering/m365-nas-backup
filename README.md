@@ -16,7 +16,7 @@ Docker alpha 6 adds username/password sign-in, daily/12-hour schedules, and mail
 recovery with an optional live comparison. Incremental transfers skip replayed unchanged
 messages and report downloaded counts/bytes. It includes the alpha 5 subject-format fix.
 [Upgrade instructions](docs/REGISTRY-INSTALL.md#upgrade-an-existing-container-station-application-to-alpha-6).
-Check the successful private Actions run before using a newly published tag.
+[Alpha 6 passed all release checks](https://github.com/dicorengineering/m365-nas-backup/actions/runs/40781502912), including browser, container and private registry pull verification.
 
 - **QNAP users:** [Installation and first access](docs/QNAP-INSTALL.md)
 - [Microsoft 365 application setup](docs/MICROSOFT-SETUP.md)

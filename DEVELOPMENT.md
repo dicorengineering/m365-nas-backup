@@ -1,115 +1,105 @@
-# Active checkpoint — alpha 6
+# Restart checkpoint — alpha 6 delivered
 
-Updated 2026-10-28. User authorized further feature development. Keep repository/package private.
-Read AGENTS.md and inspect Git status. No agents. No NAS/tenant changes or real-mail restoration.
-Heartbeat remains PAUSED; do not duplicate or resume it.
+Updated 2026-10-28. Requested work complete; wait for user feedback before more development.
+Read AGENTS.md and inspect Git state. No subagents unless explicitly requested.
+Keep repository/package PRIVATE. No NAS deployment, tenant changes or real-mail restores
+without further user direction. Continuation heartbeat remains PAUSED; do not duplicate/resume.
 
-## Current request and implementation
-User confirmed installed version 0.1.0a4, explaining absence of alpha5 canonical MAPI subject fix.
-Alpha6 includes that existing fix: old snapshots read subjects from saved raw metadata without rewriting.
-New implementation:
-- Same-changeKey delta entries skip payload/metadata downloads; folder 410 reset re-enumerates
-  membership but reuses matching prior payloads. Completed snapshots/cursors remain immutable.
-- Persisted transfer statistics in each new manifest, returned in operation/items API.
-  Reuse immutable metadata entries; count directly without duplicate mailbox-sized maps.
-- Daily/12h/custom scheduling; automatic overdue grace; too-short legacy threshold normalizes
-  to automatic. Due time derives from persisted last attempt completion; restart preserves timing.
-- Mailbox-first recovery, 200-point pages, explicit optional comparison, bulk saved selection.
-- One local username/password account. Initial setup requires old administrator token, then
-  disables administrator-token API access. Kuma monitor token unchanged. PBKDF2-SHA256/600k,
-  HttpOnly/SameSite session cookies, custom header on browser mutations, bounded rate/session
-  state, no credential echo in validation errors. Password change/reset revokes sessions.
-- Local interactive CLI set-password USERNAME for account recovery. No password in arguments.
-- No additional service; existing 512MiB/one CPU limit, single-item sequential exports.
-- Install/upgrade/usage documentation updated, tag bumped to 0.1.0-alpha.6 / app0.1.0a6.
+## Delivered image and validation
+Private repository https://github.com/dicorengineering/m365-nas-backup (verified PRIVATE).
+Private image ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6, console version0.1.0a6.
+Digest sha256:b86f3546e9498e5adb63a53bcc32f3f322d2068c02474c778c808d923c5f9649
+Tested source c44b6be5e7307f95414345ad3c4e71afbd7e4f94
+Successful CI https://github.com/dicorengineering/m365-nas-backup/actions/runs/40781502912
+Offline artifact M365Backup-0.1.0-alpha.6-docker-amd64. No separate GitHub Release.
+Registry report verifies private visibility and an actual pull matching the tested image.
+Package repository association is absent in API metadata; owner access works, other users
+may need explicit package access. Do not make public. Never overwrite this published tag.
+This checkpoint and small documentation corrections follow in a [skip ci] commit.
 
-## Validation / next step
-83 local tests passed before final documentation/container-smoke update. Ruff/JS checks pass.
-Browser test now exercises setup/password login, reload, daily schedule, mailbox-first recovery,
-no automatic live comparison, bulk selection and restore against fake mail.
-Container smoke now checks account/settings persistence across recreation and disables old token.
-Resource fixture now asserts changed-only downloads and zero downloads on replay.
-First CI 40781197151 passed both Python versions, audit and browser. Cancelled before publication
-to reduce metadata index copying/counting memory. Retest incremental cases and push follow-up.
-NEXT: inspect Linux CI (browser, two Python versions, Docker/resource,
-private GHCR publication/pull). Do not claim alpha6 delivered until those pass.
-Then update this checkpoint with tested source, run URL and digest; docs-only [skip ci] commit.
-No live Microsoft or NAS testing performed by this agent.
+83 tests passed on Linux Python3.12/3.13, Ruff/format, JS syntax, runtime dependency audit.
+Playwright passed account setup, password login/logout, reload session, daily scheduling,
+mailbox-first recovery, explicit comparison, bulk selection and fake-mail restore confirmation.
+Recovery/mobile screenshots from prior f899a14 run reviewed visually (same final UI).
+First CI40781197151 passed tests/browser then was cancelled before publication to reduce
+temporary metadata copies. Final CI reran everything successfully.
+Docker24 classic archive import/start, shipped Compose, password/config/exports persistence
+after recreation, Kuma authentication and 512MiB/oneCPU resource checks passed.
+Synthetic 2000x64KiB+2x16MiB: initial164626432bytes, changed-only65536bytes, replay0bytes.
+Idle web RSS69.79MiB, synthetic backup process peak180.64MiB; no OOM.
+No actual NAS/tenant tests performed by agent. User previously reported backups working,
+which is not comprehensive live restore-fidelity acceptance.
 
-## Previous delivery (alpha 5)
-Private repository: https://github.com/dicorengineering/m365-nas-backup (verified PRIVATE).
-Private image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5
-Digest: sha256:bb9dc1f8bf4eda3ce0b9500d12ed135b718b0ae62bb1ddc00853fcd516063405
-Tested source: c45169a3e8a65989f98b3e6c436b94fad9abae93
-Successful CI: https://github.com/dicorengineering/m365-nas-backup/actions/runs/40593160484
-Offline artifact: M365Backup-0.1.0-alpha.5-docker-amd64, includes docs and reports.
-No separate alpha5 GitHub Release was created; direct private pull is the preferred route.
-Registry report confirms visibility private and pulled image ID matches the tested image.
-Repository association is absent from package API metadata. Owner access works; other users
-may need separate package read access. Never make repository or package public without direction.
-A documentation-only checkpoint follows the tested source with [skip ci].
+## User context
+QNAP TS-453A, QTS5.2.10.3577, Container Station3.1.2.1742; modest hardware.
+User confirmed installed version0.1.0a4. Subject parser fix was in alpha5, not their image.
+They requested incremental transfers retaining versions, daily/12h scheduling, easier mailbox/
+snapshot selection with optional live comparison, speed improvements and username/password.
+User explicitly replaced QPKG with Docker. Do not revisit wrapper/import troubleshooting.
+NAS refuses SSH forwarding. Preserve existing working port binding and all volume names/paths
+when upgrading. Update only image tag; do not initialize a new config/key/repository.
+Instructions: docs/REGISTRY-INSTALL.md and docs/USAGE.md.
 
-## Current user context
-User reports backups working on QNAP (TS-453A, Container Station 3.1.2.1742).
-They requested live mailbox differences/bulk restore and asked about indefinite certificates.
-They also reported all subject lines blank. Alpha5 includes all three improvements.
-User explicitly replaced QPKG with Docker; do not revisit wrapper/import troubleshooting.
-SSH forwarding was refused by the NAS. User was given direct browser-access port mapping;
-preserve their working port binding when upgrading. Change only the image tag and retain
-all existing named volumes/configuration/encryption key. See docs/REGISTRY-INSTALL.md.
+## Current behavior
+- Graph delta cursors already supported; now same-ID/same-changeKey entries skip payload
+  and metadata downloads when replayed. Folder410 reset rebuilds membership but reuses
+  matching prior data. Recreated mailbox gets baseline. Failed runs never advance cursors.
+- Completed snapshots remain immutable and independently restorable, referencing shared
+  encrypted blobs. New/changed versions export sequentially one item/request to bound RAM.
+- Transfer counts/bytes/duration saved in new manifests and returned in backup results/items
+  API. Old manifests have no statistics. Count directly without duplicate mailbox-wide maps.
+  Copy folder membership only; unchanged item descriptors are never mutated.
+- Presence check when reusing replayed objects; explicit Verify decrypts/hashes all content.
+  Incremental success is not a full integrity scan. Retention/default restore safeguards unchanged.
+- Schedule supports15–10080minutes, hourly/12h/daily presets. Due time uses persisted last
+  attempt completion across restarts. No previous attempt => prompt first run when enabled.
+  Failed runs wait interval unless manually retried. A manual run resets due time.
+- Optional stale_after_minutes null => interval + max(60,interval/2). Existing custom threshold
+  <= interval normalizes to automatic. Legacy180 remains if still valid. Next due/effective
+  threshold shown in Overview. Concurrent Runner start409 cannot kill scheduler.
+- Recovery first selects mailbox (including retained removed accounts), then dated point in
+  pages of200. Offline saved contents first; live comparison only on explicit button.
+  Bulk selection works for saved or compared messages, bounded1000. Restore preview/confirm
+  still creates a new folder; uncertain imports never retry automatically.
+- Subjects use numeric MAPI tag0x0037, including returned String0x37. Saved raw metadata
+  supplies blank convenience subjects in existing alpha4 points without rewriting/downloads.
+  Truly missing subjects remain No subject. User needs new image for this fix.
+- Existing read-only live comparison scans full current email metadata, no attachment exports
+  or backup cursor changes. Single in-memory result; no partial publish. ChangeKey includes
+  flags/properties; changed IDs can appear missing/new. No duplicate guessing.
+- Certificate staging/validation/activation from alpha4/5 unchanged. No indefinite certificates;
+  local long validity does not guarantee Entra acceptance. See Microsoft setup documentation.
 
-## Changes and guarantees
-- Recovery automatically compares the selected snapshot with the current source mailbox.
-  Missing/changed/moved/new/unchanged filters, backup/current folder columns, timestamp,
-  page selection and all-filtered selection across pages, maximum1000 per restore.
-- Comparison uses read-only metadata scans, with the existing backup app permissions.
-  No export/download of attachments, no import, no durable delta cursor advancement.
-  No partial results on failure. One in-memory comparison; new scan/restart replaces it.
-- ChangeKey includes flags/properties; this is not a byte-level content diff. Changed IDs
-  can appear missing/new. Moves recognized only with preserved IDs. Not an atomic instant.
-  Comparison is always with the source mailbox even if restore destination is different.
-- Existing restore safeguards preserved: new recovery folder, preview/confirmation, uncertain
-  imports never retried automatically. Comparison does not suppress duplicate restored copies.
-- Subject parser now interprets numeric MAPI tag0x0037, including canonical0x37. Old snapshots
-  display/search subjects from saved raw metadata when convenience field is blank, without
-  rewriting snapshots or network requests. Truly absent/empty subjects remain (No subject).
-- Certificate renewal in Settings: stage public replacement, download/upload into Entra,
-  test token acquisition using exact pending thumbprint, then atomic activation. Existing
-  private key reused, previous public PEM saved, encryption key unchanged. This is validity
-  renewal, not compromised-key rotation. Failed authentication preserves working certificate.
-- Local certificate validity1–3650 days/default365; expiry shown,45-day console warning.
-  Certificates cannot be indefinite. Microsoft Graph registration docs specify a one-year
-  limit; tenant policy may restrict further. Never promise a ten-year PEM means ten-year
-  Entra access. User must check expiry actually registered in Entra. No automatic app-write
-  permissions added; no real registrations changed. Console warning does not alter Kuma status.
-
-## Validation
-65 tests on Linux Python3.12/3.13; Ruff/format, JS syntax, dependency audit passed.
-Browser exercised retention, staged certificate download, live difference bulk selection,
-restore confirmation, lock and mobile view with synthetic mail. Screenshot of comparison
-visually inspected from alpha4 (same UI). Alpha5 reran browser with canonical subject property.
-Container validation: exact classic archive import/start on Docker24.0.9; shipped Compose,
-authentication, persistent settings/exports and resource limits; real GHCR push/pull check.
-512MiB ceiling, oneCPU, non-root/read-only, one export item per request; no additional service.
-Synthetic workload: 2000x64KiB +2x16MiB, incremental change/deletion, verification and comparison.
-Idle service RSS67.96MiB, workload peak RSS178.88MiB; no OOM events. These are CI figures,
-not NAS capacity guarantees. Full manifests and latest comparison remain in memory.
-Earlier CI40547400769 exposed a status/comparison completion race; deterministic regression
-added and fixed in1b2ac81. No pending failure. No actual tenant/NAS tests by this agent.
+## Console authentication
+Single local administrator in /config/account.json. PBKDF2-SHA256/600k random salt,
+600k cost uses little memory; no extra dependency/server.
+Initial web setup requires original admin.token as one-time code. After account creation,
+administrator bearer tokens no longer authorize data APIs. Monitor token stays valid only
+for /backup-status. Before account setup, old admin API bearer access remains compatible.
+Sessions are random tokens (server stores hashes), HttpOnly/SameSite=strict cookies,12h TTL,
+max32 in memory. Restart/signout/password change revokes. Account revision checked each request,
+so local CLI reset revokes running service sessions. No localStorage credentials.
+Browser mutations/login/logout require X-M365-Request:1; CORS is not enabled. Validation errors
+exclude request values. Global five sign-in/setup/change attempts/min bounds KDF work.
+Cookie Secure auto on HTTPS; M365_COOKIE_SECURE=true for HTTPS reverse proxy. Direct HTTP
+remains compatible with user's LAN binding; use protected Tailscale/HTTPS for traffic privacy.
+CLI: docker exec -it m365-nas-backup m365-backup set-password USERNAME prompts twice.
+Never put passwords into args/chat/logs. Preserve account.json with config backup.
 
 ## Boundaries and continuity
-Keep repository/package private. No NAS deployment, Microsoft tenant changes or real restore
-without further user direction. User's backup success report is not comprehensive restore
-fidelity acceptance. Primary/shared Global cloud IPF.Note email only; online archives excluded.
-Existing verified backup should remain during evaluation. See docs/ACCEPTANCE.md.
-Heartbeat continue-m365-nas-backup remains PAUSED. Do not duplicate or resume unless directed.
-No further autonomous feature work required for this delivery. Save safe checkpoints if resumed.
+Global-cloud primary/shared IPF.Note email only, no online archives/PST/EML/full mailbox rollback.
+Single tenant/installation. Manifests and comparison in memory; 7.5GB live capacity not measured.
+No added services; embedded SQLite,512MiB/oneCPU default,non-root/read-only,single export item.
+Keep verified alternate backup during evaluation. Follow docs/ACCEPTANCE.md for live validation.
+User's next step: pull alpha6 and recreate current application with SAME ports/volumes, use
+old token once to create account, select daily/12h settings and inspect an older recovery point.
+No further autonomous feature work required. Wait for feedback.
 
 ## Environment
-Project is a separate nested Git repository at dicor-m365-backup under DiCor Websites.
-Windows PowerShell, .venv/Scripts/python.exe, Git/gh. No local Docker/WSL or Playwright;
-Linux CI builds/tests containers/browser. Reviewed require_escalated shell works.
-Use explicit encoding="utf-8" for Python file I/O on Windows. Keep credentials/real mail out
-of Git. dist/,build/,config/,data/ are ignored. Do not touch parent website files.
+Separate nested Git repo; do not touch parent websites. Windows PowerShell and .venv Python3.13,
+git/gh/node. No local Docker/WSL/Playwright; Linux CI handles browser/container.
+Reviewed require_escalated shell works. apply_patch fails on workspace reparse point; use
+PowerShell here-string piped to venv Python, explicit encoding="utf-8", for edits.
+build/,dist/,config/,data/ ignored. No credentials/real mail in Git.
 Push: git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin main
-Do not change global credentials. Local gh token lacks read:packages; CI GITHUB_TOKEN has it.
+Do not change global credentials. Local gh token lacks read:packages; CI token verifies package.

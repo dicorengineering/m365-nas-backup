@@ -32,12 +32,31 @@ and startup on Docker 24.0.9. This does not emulate the proprietary Container St
 - Image size and the applied CPU/memory limits.
 
 The synthetic test performs a baseline of 2,000 items at 64 KiB and two at 16 MiB, an incremental
-change/deletion, verification of both retained snapshots, and comparison with live metadata. It exercises the real Graph
+change/deletion, a replay with zero payload downloads, verification of both retained snapshots, and comparison with live metadata. It exercises the real Graph
 JSON/base64 decoding, encryption, compression, disk writes and delta handling using generated
 responses. Generating those responses also uses test-process RAM. There are no tenant credentials.
 
 These are **CI measurements**, not TS-453A measurements or a promise for every mailbox.
 The report's runtime is not a predicted NAS backup time.
+
+## Alpha 6 measurements
+
+[Validated release run](https://github.com/dicorengineering/m365-nas-backup/actions/runs/40781502912),
+source c44b6be5e7307f95414345ad3c4e71afbd7e4f94:
+
+| Measurement | Result |
+| --- | --- |
+| Idle service RSS | 69.79 MiB |
+| Synthetic workload process peak RSS | 180.64 MiB |
+| Initial exported payload | 157 MiB |
+| Incremental payload (one changed message) | 64 KiB |
+| Replayed unchanged delta payload | 0 bytes |
+| Container out-of-memory events | 0 |
+
+The synthetic process runs alongside the web service. These are separate process RSS readings,
+not a summed whole-container peak. The release report includes the cgroup peak including cache.
+The final implementation reuses immutable metadata entries and counts changes without extra
+mailbox-wide indexes. A 7.5 GB real mailbox was not part of this test.
 
 ## Practical limits and tuning
 
