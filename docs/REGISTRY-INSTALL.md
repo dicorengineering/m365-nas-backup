@@ -25,8 +25,8 @@ archive importer. The GitHub repository and container package remain private.
 ## Pull and confirm
 
 ```sh
-docker pull ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5
-docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5 --format '{{.Id}} {{.Architecture}} {{.Os}}'
+docker pull ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6
+docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6 --format '{{.Id}} {{.Architecture}} {{.Os}}'
 ```
 
 The inspection should show an image ID followed by `amd64 linux`.
@@ -38,7 +38,7 @@ Open the repository's [compose.yaml](../compose.yaml), copy its full contents, t
 **Container Station → Applications → Create** and paste them. The image line must be:
 
 ```yaml
-image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5
+image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6
 ```
 
 Since the image is already pulled, leave forced pulling disabled. A login in your SSH account
@@ -61,21 +61,33 @@ If it says manifest unknown, check the exact tag. The image is linux/amd64 only.
 
 Reference: [GitHub Container Registry authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 
-## Upgrade an existing Container Station application to alpha 5
+## Upgrade an existing Container Station application to alpha 6
 
 Wait for any active backup/restore to finish. Preserve a protected configuration copy and a
 verified recovery bundle. In the NAS terminal run:
 
 ```sh
-docker pull ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5
+docker pull ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6
 ```
 
 In Container Station, open the existing application and use **Recreate**. Change only its
 image line to the tag above. Keep your working port binding and all three volume names/paths;
 do not replace the complete YAML with defaults. Do not remove volumes. After it starts, reload
-the browser and confirm version **0.1.0a5** in the footer, then inspect an existing recovery point.
+the browser and confirm version **0.1.0a6** in the footer, then inspect an existing recovery point.
 No snapshot migration, certificate replacement or fresh baseline is required by this upgrade.
 
-Recovery now compares the chosen backup with the current source mailbox. Use **Show → Missing**
-and **Select all matching differences**, then **Review restore**. Certificate renewal is optional
-and is described in [Microsoft setup](MICROSOFT-SETUP.md#certificates-and-renewal).
+On first sign-in, use the existing administrator token as the **One-time setup code**, then
+choose a username and a password of at least 12 characters. After this, the token no longer
+grants administration access. Your Uptime Kuma monitor token is unchanged. See
+[account setup and password recovery](USAGE.md#sign-in-and-password-recovery).
+
+In **Settings → Backup frequency**, choose **Every 12 hours** or **Every day (24 hours)**.
+Leave the optional overdue threshold blank for automatic monitoring, then save.
+An existing too-short threshold is automatically replaced when increasing the interval.
+The interval runs from the last completed attempt; changing it takes effect without restarting.
+
+In **Recovery**, choose **Email account → Recovery point**. Saved messages appear immediately,
+including subjects from older alpha4 metadata. Click **Compare with current mailbox** only when
+you want a live difference scan. Search and select a page or all matching messages (up to 1,000),
+then review the restore. Incremental backups reuse unchanged message data and keep older versions.
+No extra service or resource increase is required. See [usage](USAGE.md) for details.

@@ -8,14 +8,14 @@ QNAP users can follow the GUI procedure in [QNAP-INSTALL.md](QNAP-INSTALL.md).
 
 ## Install
 
-Download and unzip **M365Backup-0.1.0-alpha.5-docker-amd64** from the Artifacts section
+Download and unzip **M365Backup-0.1.0-alpha.6-docker-amd64** from the Artifacts section
 of a successful private **Test and build Docker alpha** Actions run.
 In that extracted directory:
 
 ```sh
 sha256sum -c SHA256SUMS
-docker load --input m365-nas-backup-0.1.0-alpha.5-amd64.tar.gz
-docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5 --format '{{.Architecture}} {{.Os}}'
+docker load --input m365-nas-backup-0.1.0-alpha.6-amd64.tar.gz
+docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6 --format '{{.Architecture}} {{.Os}}'
 docker compose up -d --pull never
 docker compose exec backup cat /config/admin.token
 ```
@@ -27,7 +27,9 @@ Named volumes initialize with the app's UID/GID 10001 and restrictive permission
 Browse at **http://127.0.0.1:8765**, using an SSH tunnel for a remote host:
 `ssh -N -L 8765:127.0.0.1:8765 USER@HOST`.
 For Tailscale, replace the host bind IP in Compose with the host's actual Tailscale address,
-then recreate. Keep tokens inside a protected tunnel or HTTPS.
+then recreate. Keep credentials inside a protected tunnel or HTTPS.
+Use the printed administrator token once as the setup code to create your username/password
+account. Future visits use that account. See [sign-in and reset](USAGE.md#sign-in-and-password-recovery).
 
 Follow [Microsoft setup](MICROSOFT-SETUP.md), [usage](USAGE.md), [recovery](RECOVERY.md)
 and [acceptance](ACCEPTANCE.md). See [resource limits](RESOURCES.md).
@@ -85,7 +87,7 @@ repository or credentials directory between running services.
 On a build machine, check out the intended revision and run:
 
 ```sh
-docker build -t ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5 .
+docker build -t ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6 .
 docker compose up -d --pull never
 ```
 

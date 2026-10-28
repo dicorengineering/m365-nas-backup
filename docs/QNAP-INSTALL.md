@@ -1,4 +1,4 @@
-# QNAP installation — Docker alpha 5
+# QNAP installation — Docker alpha 6
 
 **Preferred: [pull from the private registry](REGISTRY-INSTALL.md).** This avoids the archive importer.
 The instructions below cover optional offline installation.
@@ -11,13 +11,13 @@ The QPKG wrapper has been retired. Use this guide instead of the alpha 1 App Cen
 On a computer signed into GitHub with repository access:
 
 1. Open this repository's **Actions → Test and build Docker alpha**.
-2. Choose a successful run and download **M365Backup-0.1.0-alpha.5-docker-amd64**.
+2. Choose a successful run and download **M365Backup-0.1.0-alpha.6-docker-amd64**.
 3. Unzip the download. Keep the image archive, `compose.yaml`, instructions, resource report
    and `SOURCE-COMMIT.txt` together.
 4. Check the image's SHA-256 against the matching line in `SHA256SUMS`. On Windows:
 
    ```powershell
-   Get-FileHash .\m365-nas-backup-0.1.0-alpha.5-amd64.tar.gz -Algorithm SHA256
+   Get-FileHash .\m365-nas-backup-0.1.0-alpha.6-amd64.tar.gz -Algorithm SHA256
    ```
 
    On Linux, `sha256sum -c SHA256SUMS` checks all packaged files.
@@ -54,12 +54,12 @@ the new application. A name conflict is expected if one remains.
 ## 3. Import the image
 
 In **Container Station → Images → Import**, choose the downloaded
-`m365-nas-backup-0.1.0-alpha.5-amd64.tar.gz`. Wait for the import to finish.
+`m365-nas-backup-0.1.0-alpha.6-amd64.tar.gz`. Wait for the import to finish.
 Do not select the optional **Import and Create** shortcut; the next step supplies the storage
-and resource settings. Confirm `ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5` appears in Images.
+and resource settings. Confirm `ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6` appears in Images.
 
 Import through **Images**, not the container-import screen. If using SSH instead:
-`docker load --input /PATH/TO/m365-nas-backup-0.1.0-alpha.5-amd64.tar.gz`.
+`docker load --input /PATH/TO/m365-nas-backup-0.1.0-alpha.6-amd64.tar.gz`.
 
 ### Import says successful but Images is empty
 
@@ -81,12 +81,12 @@ Compose application, with forced pulling disabled. If no tag is listed, copy the
 to a known NAS folder and load it directly (replace the path):
 
 ```sh
-docker load --input /ACTUAL/NAS/PATH/m365-nas-backup-0.1.0-alpha.5-amd64.tar.gz
-docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5 --format '{{.Id}} {{.Architecture}} {{.Os}}'
+docker load --input /ACTUAL/NAS/PATH/m365-nas-backup-0.1.0-alpha.6-amd64.tar.gz
+docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6 --format '{{.Id}} {{.Architecture}} {{.Os}}'
 ```
 
 Use `load`, not `import`: an image archive includes its startup configuration. Success should
-report `Loaded image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5`; inspection should show an ID, `amd64 linux`.
+report `Loaded image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6`; inspection should show an ID, `amd64 linux`.
 If this fails, capture that exact error plus the Container Station version. Do not reinstall
 Container Station, prune volumes or delete other containers to troubleshoot this image.
 
@@ -121,8 +121,9 @@ cat /config/admin.token
 ```
 
 Alternatively, in a second NAS SSH session: `docker exec m365-nas-backup cat /config/admin.token`.
-Paste the token into the console. Do not share it in screenshots or support messages.
-The console retains it only in tab memory; a reload requires signing in again.
+Use this once as the **One-time setup code**, then choose a username and password of at least
+12 characters. After setup, sign in with that username/password; the old admin token stops working.
+See [password recovery](USAGE.md#sign-in-and-password-recovery) if you forget it.
 
 For daily access over Tailscale, change the Compose port line to the NAS's **actual Tailscale IP**:
 
@@ -135,7 +136,7 @@ The address above is an example. In Container Station use **Recreate** to update
 keeping the same volume names. Start Tailscale before this application. Browse to
 `http://YOUR_NAS_TAILSCALE_IP:8765` from an allowed Tailscale device.
 An HTTPS reverse proxy is another option. Keep plain HTTP inside a protected tunnel;
-do not expose the administrator token over ordinary LAN HTTP or the public Internet.
+do not expose credentials over unprotected networks. For an HTTPS proxy, set the container environment variable `M365_COOKIE_SECURE=true`.
 
 ## 6. Connect Microsoft 365
 
@@ -192,7 +193,7 @@ Skip this section if the old package never created backups. Do not initialize ne
    by numeric UID/GID 10001. Remove the now-unused top-level `volumes:` definitions.
 5. In the original `settings.json`, while stopped, set `scheduler_enabled` and
    `restore_enabled` to `false` for validation.
-6. Import/create the new application, sign in with the **original** admin token, and verify old
-   points before re-enabling schedules. The alpha 1 encrypted snapshot format is unchanged.
+6. Import/create the new application, use the **original** admin token once to create your
+   username/password account, and verify old points before re-enabling schedules. The alpha 1 encrypted snapshot format is unchanged.
 
 Do not run old and new services simultaneously against the same repository.

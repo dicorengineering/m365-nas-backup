@@ -1,9 +1,39 @@
-# Restart checkpoint
+# Active checkpoint — alpha 6
 
-Updated 2026-10-27. Alpha 5 delivered; stop feature work until the user requests more.
-Read AGENTS.md and inspect Git status before changing anything. No agents unless requested.
+Updated 2026-10-28. User authorized further feature development. Keep repository/package private.
+Read AGENTS.md and inspect Git status. No agents. No NAS/tenant changes or real-mail restoration.
+Heartbeat remains PAUSED; do not duplicate or resume it.
 
-## Delivered image
+## Current request and implementation
+User confirmed installed version 0.1.0a4, explaining absence of alpha5 canonical MAPI subject fix.
+Alpha6 includes that existing fix: old snapshots read subjects from saved raw metadata without rewriting.
+New implementation:
+- Same-changeKey delta entries skip payload/metadata downloads; folder 410 reset re-enumerates
+  membership but reuses matching prior payloads. Completed snapshots/cursors remain immutable.
+- Persisted transfer statistics in each new manifest, returned in operation/items API.
+- Daily/12h/custom scheduling; automatic overdue grace; too-short legacy threshold normalizes
+  to automatic. Due time derives from persisted last attempt completion; restart preserves timing.
+- Mailbox-first recovery, 200-point pages, explicit optional comparison, bulk saved selection.
+- One local username/password account. Initial setup requires old administrator token, then
+  disables administrator-token API access. Kuma monitor token unchanged. PBKDF2-SHA256/600k,
+  HttpOnly/SameSite session cookies, custom header on browser mutations, bounded rate/session
+  state, no credential echo in validation errors. Password change/reset revokes sessions.
+- Local interactive CLI set-password USERNAME for account recovery. No password in arguments.
+- No additional service; existing 512MiB/one CPU limit, single-item sequential exports.
+- Install/upgrade/usage documentation updated, tag bumped to 0.1.0-alpha.6 / app0.1.0a6.
+
+## Validation / next step
+83 local tests passed before final documentation/container-smoke update. Ruff/JS checks pass.
+Browser test now exercises setup/password login, reload, daily schedule, mailbox-first recovery,
+no automatic live comparison, bulk selection and restore against fake mail.
+Container smoke now checks account/settings persistence across recreation and disables old token.
+Resource fixture now asserts changed-only downloads and zero downloads on replay.
+NEXT: inspect diff, commit/push, inspect Linux CI (browser, two Python versions, Docker/resource,
+private GHCR publication/pull). Do not claim alpha6 delivered until those pass.
+Then update this checkpoint with tested source, run URL and digest; docs-only [skip ci] commit.
+No live Microsoft or NAS testing performed by this agent.
+
+## Previous delivery (alpha 5)
 Private repository: https://github.com/dicorengineering/m365-nas-backup (verified PRIVATE).
 Private image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5
 Digest: sha256:bb9dc1f8bf4eda3ce0b9500d12ed135b718b0ae62bb1ddc00853fcd516063405

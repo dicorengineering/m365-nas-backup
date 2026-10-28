@@ -1,5 +1,6 @@
 """Exercise the shipped Compose on an isolated CI Docker engine, with fake data only."""
 
+import http.cookiejar
 import json
 import subprocess
 import time
@@ -37,18 +38,22 @@ def main():
             docker(*compose, "up", "-d", "--pull", "never")
             base = "http://" + docker(*compose, "port", "backup", "8765")
 
-            def request(path, token="", body=None):
-                headers = {"Authorization": "Bearer " + token}
+            opener = urllib.request.build_opener(
+                urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+            )
+
+            def request(path, token="", body=None, method=None):
+                headers = {"Authorization": "Bearer " + token, "X-M365-Request": "1"}
                 if body is not None:
                     headers["Content-Type"] = "application/json"
                 req = urllib.request.Request(
                     base + path,
                     headers=headers,
                     data=json.dumps(body).encode() if body is not None else None,
-                    method="PUT" if body is not None else "GET",
+                    method=method or ("PUT" if body is not None else "GET"),
                 )
                 try:
-                    with urllib.request.urlopen(req, timeout=5) as response:
+                    with opener.open(req, timeout=5) as response:
                         return response.status, json.load(response)
                 except urllib.error.HTTPError as response:
                     return response.code, json.load(response)
@@ -80,13 +85,24 @@ def main():
             status, settings = request("/api/settings", admin)
             assert status == 200
             settings["retention"]["days"] = 91
+            settings.update(interval_minutes=1440, stale_after_minutes=180)
             assert request("/api/settings", admin, settings)[0] == 200
+            credentials = {"username": "synthetic-admin", "password": "Synthetic password only!"}
+            assert (
+                request("/api/auth/setup", body={**credentials, "setup_code": admin}, method="POST")[0] == 200
+            )
+            assert request("/api/settings")[0] == 200
             docker("exec", name, "sh", "-c", "printf persistent > /exports/sentinel")
             # Recreating exercises volume survival when an image/application is upgraded.
             docker(*compose, "up", "-d", "--force-recreate", "--pull", "never")
             base = "http://" + docker(*compose, "port", "backup", "8765")
             wait_ready()
-            assert request("/api/settings", admin)[1]["retention"]["days"] == 91
+            assert request("/api/settings", admin)[0] == 401
+            assert request("/api/auth/login", body=credentials, method="POST")[0] == 200
+            saved = request("/api/settings")[1]
+            assert saved["retention"]["days"] == 91
+            assert saved["interval_minutes"] == 1440
+            assert request("/api/status")[1]["overdue_minutes"] == 2160
             assert docker("exec", name, "cat", "/config/monitor.token") == monitor
             assert docker("exec", name, "cat", "/exports/sentinel") == "persistent"
             status_text = docker("exec", name, "cat", "/proc/1/status")

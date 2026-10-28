@@ -1,30 +1,54 @@
 "use strict";
 const $ = id => document.getElementById(id);
-let token = "", settings = null, snapshots = [], items = [], offset = 0, total = 0, timer = null, reviewAction = null;
+let signedIn = false, accountConfigured = false, settings = null, snapshots = [], items = [], offset = 0, total = 0, timer = null, reviewAction = null;
 const selected = new Map();
 let comparison = null, ignoredComparison = null, pendingCompare = "", compareTimer = null, itemRequest = 0, certificates = [];
 const itemKey = item => JSON.stringify([item.folder_id,item.item_id]);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function message(text) {$("message").textContent = text; $("message").hidden = false; clearTimeout(timer); timer = setTimeout(() => $("message").hidden = true, 9000);}
 async function api(path, options = {}) {
-  const response = await fetch(path, {...options, headers: {Authorization:"Bearer "+token, "Content-Type":"application/json", ...(options.headers||{})}});
+  const response = await fetch(path, {...options, headers: {"X-M365-Request":"1", "Content-Type":"application/json", ...(options.headers||{})}});
   const body = await response.json();
   if (!response.ok) {
     if (response.status === 401) lock();
-    throw Error(typeof body.detail === "string" ? body.detail : "Please check the supplied values.");
+    throw Error(typeof body.detail === "string" ? body.detail : (Array.isArray(body.detail)?body.detail.map(e=>e.loc.slice(1).join(".")+": "+e.msg).join("; "):"Please check the supplied values."));
   }
   return body;
 }
-function lock() {clearTimeout(compareTimer); pendingCompare=""; comparison=null; itemRequest++; token=""; settings=null; selected.clear(); $("console").hidden=true; $("login").hidden=false;}
+function lock() {
+  clearTimeout(compareTimer);pendingCompare="";comparison=null;itemRequest++;signedIn=false;settings=null;selected.clear();items=[];snapshots=[];reviewAction=null;
+  $("review").close();$("console").hidden=true;$("login").hidden=false;
+  $("item-rows").innerHTML="";$("operation").textContent="";$("mailbox-rows").innerHTML="";
+  document.querySelectorAll('input[type="password"]').forEach(input=>input.value="");
+}
+function loginMode(configured) {
+  accountConfigured=configured;
+  $("setup-code-field").hidden=configured;$("setup-code").required=!configured;
+  $("confirm-password-field").hidden=configured;$("confirm-password").required=!configured;
+  $("password").minLength=configured?1:12;$("password").autocomplete=configured?"current-password":"new-password";
+  $("login-description").textContent=configured?"Sign in to manage your Exchange backups.":"Create your administrator account. Use a password of at least 12 characters.";
+  $("sign-in").textContent=configured?"Sign in":"Create account";
+}
+async function openConsole() {
+  signedIn=true;await loadSettings();await refresh();
+  document.querySelectorAll(".tab").forEach(s=>s.hidden=s.id!=="overview");
+  document.querySelectorAll("[data-tab]").forEach(b=>{b.removeAttribute("aria-current");if(b.dataset.tab==="overview")b.setAttribute("aria-current","page");});
+  $("login-form").reset();$("login").hidden=true;$("console").hidden=false;
+}
+function backupSummary(result) {
+  return result.mailbox+": "+(result.status==="failed"?"Failed ("+result.error+")":
+    (result.mode==="initial"?"Initial backup":"Incremental backup")+" — "+result.exported_items+" messages downloaded ("+(result.downloaded_bytes/1024**2).toFixed(1)+" MB); "+result.unchanged_items+" unchanged, "+result.new_items+" new, "+result.changed_items+" changed, "+result.deleted_items+" removed from current mailbox. Older versions remain in retained recovery points.");
+}
 function date(value) {return value ? new Date(value).toLocaleString() : "Never";}
 async function refresh() {
-  if (!token) return;
+  if (!signedIn) return;
   const status = await api("/api/status");
   $("health-banner").textContent = status.healthy ? "All selected mailboxes have a recent completed backup." : status.configured ? "Backup coverage needs attention. Check the mailbox results below." : "Set up your Microsoft connection and select mailboxes to start.";
   $("health-banner").classList.toggle("good",status.healthy);
   $("mailbox-count").textContent = status.mailboxes.length;
   $("free-space").textContent = (status.free_bytes/1024**3).toFixed(1)+" GB";
-  $("schedule-state").textContent = status.scheduler_enabled ? "Enabled" : "Paused";
+  $("schedule-state").textContent = status.scheduler_enabled ? (settings.interval_minutes===1440?"Daily":settings.interval_minutes===720?"Every 12 hours":"Every "+settings.interval_minutes+" min") : "Paused";
+  $("next-backup").textContent=status.next_backup?"Next scheduled backup: "+date(status.next_backup)+" · overdue threshold: "+status.overdue_minutes+" minutes":"Scheduled backups are paused.";
   $("version").textContent = status.version;
   $("scope").textContent = status.scope;
   $("backup-now").disabled=status.busy;
@@ -41,11 +65,14 @@ async function refresh() {
   }
   if(pendingCompare){clearTimeout(compareTimer);compareTimer=setTimeout(()=>refresh().catch(err=>{pendingCompare="";message(err.message);}),1500);}
   $("operation").textContent = status.operation ? JSON.stringify(status.operation,null,2) : "No operation has run in this session.";
+  $("operation-summary").textContent=status.operation?.operation==="backup"&&Array.isArray(status.operation.result)?status.operation.result.map(backupSummary).join("\n"):
+    status.operation?status.operation.operation+": "+status.operation.state+(status.operation.error?" ("+status.operation.error+")":""):"No operation has run in this session.";
   $("mailbox-rows").innerHTML = status.mailboxes.length ? status.mailboxes.map(m=>"<tr><td>"+escapeHtml(m.label)+"</td><td class='state "+(m.healthy?"good":"")+"'>"+escapeHtml(m.running?"Running":m.healthy?"Current":m.issue)+"</td><td>"+escapeHtml(date(m.last_completed))+"</td><td>"+m.item_count.toLocaleString()+"</td></tr>").join("") : "<tr><td colspan='4'>No mailboxes configured yet. Open Settings to add them.</td></tr>";
 }
 async function loadSettings() {
   settings=await api("/api/settings"); certificates=await api("/api/certificates"); renderCertificates(); const form=$("settings-form");
-  for(const name of ["tenant_id","client_id","restore_client_id","interval_minutes","stale_after_minutes","minimum_free_gb"]) form.elements[name].value=settings[name];
+  for(const name of ["tenant_id","client_id","restore_client_id","interval_minutes","stale_after_minutes","minimum_free_gb"]) form.elements[name].value=settings[name]??"";
+  $("schedule-preset").value=[60,720,1440].includes(settings.interval_minutes)?String(settings.interval_minutes):"custom";
   for(const name of ["scheduler_enabled","restore_enabled"]) form.elements[name].checked=settings[name];
   $("mailboxes").value=settings.mailboxes.filter(m=>m.enabled).map(m=>m.user).join("\n");
   $("retention-mode").value=settings.retention.days===null?"forever":"days";
@@ -55,31 +82,52 @@ async function loadSettings() {
   $("retention-days").disabled=settings.retention.days===null;
   $("destination").innerHTML=settings.mailboxes.map(m=>"<option value='"+escapeHtml(m.user)+"'>"+escapeHtml(m.label||m.user)+"</option>").join("");
 }
+async function loadMailboxes() {
+  const previous=$("source-mailbox").value, rows=await api("/api/mailboxes");
+  $("source-mailbox").innerHTML="<option value=''>Choose a mailbox</option>"+rows.map(m=>"<option value='"+escapeHtml(m.mailbox)+"'>"+escapeHtml(m.label+" · "+m.points+" recovery points")+"</option>").join("");
+  $("source-mailbox").value=previous;
+  if(!rows.some(m=>m.mailbox===previous))resetRecovery();
+  await loadSnapshots();
+}
+function resetRecovery() {
+  itemRequest++;selected.clear();items=[];comparison=null;pendingCompare="";clearTimeout(compareTimer);offset=0;
+  $("snapshot").value="";$("item-rows").innerHTML="";$("search").value="";$("difference-filter").value="differences";
+  $("difference-filter").disabled=true;$("select-matches").disabled=true;
+  $("snapshot-summary").textContent="";$("item-count").textContent="Choose a recovery point to browse its contents.";
+  $("comparison-summary").textContent="Browse the saved messages below, or choose Compare with current mailbox.";
+}
 async function loadSnapshots(reset=true) {
-  const previous=$("snapshot").value;
-  const page=await api("/api/snapshots?limit=1000&offset="+(reset?0:snapshots.length));
+  const mailbox=$("source-mailbox").value, previous=$("snapshot").value;
+  if(!mailbox){snapshots=[];$("snapshot").innerHTML="<option value=''>Choose a mailbox first</option>";$("snapshot").disabled=true;$("older-snapshots").disabled=true;return;}
+  const page=await api("/api/snapshots?mailbox="+encodeURIComponent(mailbox)+"&limit=200&offset="+(reset?0:snapshots.length));
+  if(mailbox!==$("source-mailbox").value)return;
   snapshots=reset?page:[...snapshots,...page.filter(s=>!snapshots.some(existing=>existing.id===s.id))];
-  $("older-snapshots").disabled=page.length<1000;
-  $("snapshot").innerHTML="<option value=''>Choose a backup</option>"+snapshots.map(s=>"<option value='"+s.id+"'>"+escapeHtml(s.mailbox+" · "+date(s.completed)+" · "+s.item_count+" items")+"</option>").join("");
+  $("older-snapshots").disabled=page.length<200;$("snapshot").disabled=false;
+  $("snapshot").innerHTML="<option value=''>Choose a backup</option>"+snapshots.map(s=>"<option value='"+s.id+"'>"+escapeHtml(date(s.completed)+" · "+s.item_count.toLocaleString()+" messages")+"</option>").join("");
   $("snapshot").value=previous;
+  if(previous&&!snapshots.some(s=>s.id===previous))resetRecovery();
 }
 function comparisonQuery() {return "status="+encodeURIComponent($("difference-filter").value)+"&q="+encodeURIComponent($("search").value);}
 async function loadItems() {
   const request=++itemRequest, snapshot=$("snapshot").value;
-  if(!snapshot){$("item-rows").innerHTML="";return;}
+  if(!snapshot){items=[];total=0;$("item-rows").innerHTML="";$("item-count").textContent="Choose a recovery point to browse its contents.";$("select-matches").disabled=true;return;}
   const active=comparison?.snapshot_id===snapshot?comparison:null;
   const path=active?"/api/comparisons/"+active.id+"?"+comparisonQuery():"/api/snapshots/"+snapshot+"/items?q="+encodeURIComponent($("search").value);
   const data=await api(path+"&offset="+offset);
   if(request!==itemRequest || snapshot!==$("snapshot").value)return;
   items=data.items;total=data.total;
-  $("select-matches").disabled=!active;
+  $("select-matches").disabled=false;
   $("difference-filter").disabled=!active;
+  if(!active){
+    const stats=data.statistics;
+    $("snapshot-summary").textContent=stats?(stats.mode==="initial"?"Initial backup":"Incremental backup")+" · "+stats.exported_items+" downloaded · "+stats.unchanged_items+" unchanged · "+(stats.downloaded_bytes/1024**2).toFixed(1)+" MB downloaded":"This recovery point predates transfer statistics.";
+  }
   if(active){
     const c=data.counts;
     $("comparison-summary").textContent=data.mailbox+" · compared "+date(data.completed)+" · "+["missing","changed","moved","new","unchanged"].map(k=>(c[k]||0)+" "+k).join(" · ");
   }
   $("item-count").textContent=total+" messages · "+selected.size+" selected · showing "+(total?offset+1:0)+"–"+Math.min(offset+100,total);
-  $("item-rows").innerHTML=items.map((item,index)=>"<tr><td><input type='checkbox' aria-label='Select "+escapeHtml(item.subject)+"' data-item='"+index+"' "+(item.restorable===false?"disabled ":"")+(selected.has(itemKey(item))?"checked":"")+"></td><td>"+escapeHtml(item.subject)+"</td><td>"+escapeHtml(item.folder||"—")+"</td><td>"+escapeHtml(item.current_folder||"—")+"</td><td>"+escapeHtml(item.status?(item.status==="changed"&&item.moved?"Changed and moved":item.status):"Not compared")+"</td></tr>").join("") || "<tr><td colspan='6'>No messages match this view.</td></tr>";
+  $("item-rows").innerHTML=items.map((item,index)=>"<tr><td><input type='checkbox' aria-label='Select "+escapeHtml(item.subject)+"' data-item='"+index+"' "+(item.restorable===false?"disabled ":"")+(selected.has(itemKey(item))?"checked":"")+"></td><td>"+escapeHtml(item.subject)+"</td><td>"+escapeHtml(item.folder||"—")+"</td><td>"+escapeHtml(item.current_folder||"—")+"</td><td>"+escapeHtml(item.status?(item.status==="changed"&&item.moved?"Changed and moved":item.status):"Not compared")+"</td></tr>").join("") || "<tr><td colspan='5'>No messages match this view.</td></tr>";
   $("previous").disabled=offset===0;$("next").disabled=offset+100>=total;
 }
 async function startCompare() {
@@ -100,20 +148,33 @@ function renderCertificates(){
   $("certificate-status").textContent=certificates.map(c=>c.purpose+": "+(c.active?"active until "+date(c.active.expires):"not initialized")+(c.pending?"; replacement until "+date(c.pending.expires):"")).join(" | ");
 }
 async function downloadCertificate(purpose,pending=false){
-  const response=await fetch("/api/certificates/"+purpose+(pending?"?pending=true":""),{headers:{Authorization:"Bearer "+token}});
+  const response=await fetch("/api/certificates/"+purpose+(pending?"?pending=true":""),{credentials:"same-origin"});
   if(!response.ok)throw Error("Certificate is unavailable. Prepare a replacement first if needed.");
   const url=URL.createObjectURL(await response.blob());const a=document.createElement("a");a.href=url;a.download=purpose+(pending?"-replacement-public.pem":"-public.pem");a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function review(title,body,action) {$("review-title").textContent=title;$("review-body").textContent=body;reviewAction=action;$("review-confirm").disabled=false;$("review").showModal();}
 function bind(id,event,action) {$(id).addEventListener(event, e=>{Promise.resolve(action(e)).catch(err=>message(err.message));});}
-bind("login-form","submit",async e=>{e.preventDefault();token=$("token").value.trim();await loadSettings();await refresh();$("token").value="";$("login").hidden=true;$("console").hidden=false;});
-bind("logout","click",lock);
-document.querySelectorAll("[data-tab]").forEach(button=>button.addEventListener("click",async()=>{try{if(button.dataset.tab==="recovery")await loadSnapshots();if(button.dataset.tab==="settings")await loadSettings();document.querySelectorAll(".tab").forEach(s=>s.hidden=s.id!==button.dataset.tab);document.querySelectorAll("[data-tab]").forEach(b=>b.removeAttribute("aria-current"));button.setAttribute("aria-current","page");}catch(err){message(err.message);}}));
+bind("login-form","submit",async e=>{
+  e.preventDefault();if(!accountConfigured&&$("password").value!==$("confirm-password").value)throw Error("Passwords do not match.");
+  const body={username:$("username").value.trim(),password:$("password").value};
+  if(!accountConfigured)body.setup_code=$("setup-code").value.trim();
+  $("sign-in").disabled=true;
+  try{await api("/api/auth/"+(accountConfigured?"login":"setup"),{method:"POST",body:JSON.stringify(body)});loginMode(true);await openConsole();}
+  finally{$("sign-in").disabled=false;}
+});
+bind("logout","click",async()=>{await api("/api/auth/logout",{method:"POST",body:"{}"});lock();});
+bind("password-form","submit",async e=>{
+  e.preventDefault();if($("new-password").value!==$("new-password-confirm").value)throw Error("Passwords do not match.");
+  await api("/api/auth/password",{method:"POST",body:JSON.stringify({current_password:$("current-password").value,password:$("new-password").value})});
+  lock();message("Password changed. Sign in again.");
+});
+document.querySelectorAll("[data-tab]").forEach(button=>button.addEventListener("click",async()=>{try{if(button.dataset.tab==="recovery")await loadMailboxes();if(button.dataset.tab==="settings")await loadSettings();document.querySelectorAll(".tab").forEach(s=>s.hidden=s.id!==button.dataset.tab);document.querySelectorAll("[data-tab]").forEach(b=>b.removeAttribute("aria-current"));button.setAttribute("aria-current","page");}catch(err){message(err.message);}}));
 bind("backup-now","click",async()=>{await api("/api/backup",{method:"POST",body:"{}"});message("Backup started.");await refresh();});
 bind("settings-form","submit",async e=>{
   e.preventDefault(); const f=e.currentTarget; const next={...settings};
   for(const name of ["tenant_id","client_id","restore_client_id"])next[name]=f.elements[name].value.trim();
-  for(const name of ["interval_minutes","stale_after_minutes","minimum_free_gb"])next[name]=Number(f.elements[name].value);
+  for(const name of ["interval_minutes","minimum_free_gb"])next[name]=Number(f.elements[name].value);
+  next.stale_after_minutes=f.elements.stale_after_minutes.value?Number(f.elements.stale_after_minutes.value):null;
   for(const name of ["scheduler_enabled","restore_enabled"])next[name]=f.elements[name].checked;
   const entered=$("mailboxes").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   next.mailboxes=entered.map(user=>({...settings.mailboxes.find(m=>m.user.toLowerCase()===user.toLowerCase()),user,enabled:true}));
@@ -123,13 +184,25 @@ bind("settings-form","submit",async e=>{
   if(next.retention.automatic_pruning && (!settings.retention.automatic_pruning || (next.retention.days??Infinity)<(settings.retention.days??Infinity) || next.retention.minimum_snapshots<settings.retention.minimum_snapshots))review("Apply automatic retention?","Expired recovery points can be permanently removed after a successful backup. The configured minimum number of snapshots will remain.",save);else await save();
 });
 bind("retention-mode","change",()=>{$("retention-days").disabled=$("retention-mode").value==="forever";});
+bind("schedule-preset","change",()=>{
+  const f=$("settings-form").elements;if($("schedule-preset").value!=="custom")f.interval_minutes.value=$("schedule-preset").value;
+  if(Number(f.stale_after_minutes.value)<=Number(f.interval_minutes.value))f.stale_after_minutes.value="";
+});
+bind("settings-form","input",e=>{
+  if(e.target.name==="interval_minutes"){$("schedule-preset").value=[60,720,1440].includes(Number(e.target.value))?e.target.value:"custom";
+  if(Number(e.currentTarget.elements.stale_after_minutes.value)<=Number(e.target.value))e.currentTarget.elements.stale_after_minutes.value="";}
+});
 bind("older-snapshots","click",()=>loadSnapshots(false));
-bind("snapshot","change",async()=>{selected.clear();comparison=null;pendingCompare="";offset=0;$("difference-filter").value="differences";const snap=snapshots.find(s=>s.id===$("snapshot").value);if(snap)$("destination").value=snap.mailbox;await loadItems();if(snap)await startCompare();});
+bind("source-mailbox","change",async()=>{resetRecovery();await loadSnapshots();});
+bind("snapshot","change",async()=>{const id=$("snapshot").value;resetRecovery();$("snapshot").value=id;const snap=snapshots.find(s=>s.id===id);if(snap)$("destination").value=snap.mailbox;await loadItems();});
 bind("compare","click",startCompare);
 bind("difference-filter","change",async()=>{offset=0;await loadItems();});
 bind("select-page","click",async()=>{selectRows(items);await loadItems();});
 bind("clear-selection","click",async()=>{selected.clear();await loadItems();});
-bind("select-matches","click",async()=>{if(!comparison)throw Error("Compare the mailbox first.");const id=comparison.id,snapshot=$("snapshot").value;const rows=await api("/api/comparisons/"+id+"/selection?"+comparisonQuery());if(id!==comparison?.id||snapshot!==$("snapshot").value)return;selectRows(rows);await loadItems();});
+bind("select-matches","click",async()=>{const id=comparison?.id,snapshot=$("snapshot").value;if(!snapshot)throw Error("Choose a backup first.");
+  const path=id?"/api/comparisons/"+id+"/selection?"+comparisonQuery():"/api/snapshots/"+snapshot+"/selection?q="+encodeURIComponent($("search").value);
+  const rows=await api(path);if(id!==comparison?.id||snapshot!==$("snapshot").value)return;selectRows(rows);await loadItems();
+});
 bind("search","change",async()=>{offset=0;await loadItems();});
 bind("previous","click",async()=>{offset=Math.max(0,offset-100);await loadItems();});
 bind("next","click",async()=>{offset+=100;await loadItems();});
@@ -143,4 +216,11 @@ document.querySelectorAll("[data-certificate]").forEach(button=>button.addEventL
 bind("prepare-certificate","click",async()=>{const purpose=$("certificate-purpose").value;await api("/api/certificates/"+purpose+"/prepare",{method:"POST",body:JSON.stringify({days:Number($("certificate-days").value)})});certificates=await api("/api/certificates");renderCertificates();message("Replacement prepared. Download it and upload it to the matching Entra application before activation.");});
 bind("download-pending","click",()=>downloadCertificate($("certificate-purpose").value,true));
 bind("activate-certificate","click",()=>{const purpose=$("certificate-purpose").value;const pending=certificates.find(c=>c.purpose===purpose)?.pending;if(!pending)throw Error("Prepare and upload a replacement first.");review("Activate the "+purpose+" certificate?","Upload replacement "+pending.thumbprint+" to the matching Entra application first. Authentication will be tested before switching. Keep the existing certificate registered until this succeeds.",async()=>{await api("/api/certificates/"+purpose+"/activate",{method:"POST",body:JSON.stringify({thumbprint:pending.thumbprint})});message("Testing certificate. See Overview for the result.");await refresh();});});
-setInterval(()=>{if(token)refresh().catch(err=>message(err.message));},15000);
+setInterval(()=>{if(signedIn)refresh().catch(err=>message(err.message));},15000);
+
+async function initialize(){
+  const state=await api("/api/auth/session");loginMode(state.configured);
+  const health=await api("/health");$("version").textContent=health.version;
+  if(state.authenticated)await openConsole();
+}
+initialize().catch(err=>message(err.message));

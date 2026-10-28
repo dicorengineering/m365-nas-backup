@@ -58,7 +58,7 @@ class Settings(BaseModel):
     mailboxes: list[Mailbox] = Field(default_factory=list, max_length=100)
     retention: Retention = Field(default_factory=Retention)
     interval_minutes: int = Field(default=60, ge=15, le=10080)
-    stale_after_minutes: int = Field(default=180, ge=30, le=43200)
+    stale_after_minutes: int | None = Field(default=None, ge=30, le=43200)
     minimum_free_gb: float = Field(default=2, ge=0.1, le=10000)
     scheduler_enabled: bool = False
     restore_enabled: bool = False
@@ -79,9 +79,14 @@ class Settings(BaseModel):
         users = [m.user.lower() for m in self.mailboxes]
         if len(set(users)) != len(users):
             raise ValueError("A mailbox may only be listed once")
-        if self.stale_after_minutes <= self.interval_minutes:
-            raise ValueError("Overdue threshold must exceed the backup interval")
+        if self.stale_after_minutes is not None and self.stale_after_minutes <= self.interval_minutes:
+            # A longer interval must not be blocked by its previous overdue threshold.
+            self.stale_after_minutes = None
         return self
+
+    @property
+    def overdue_minutes(self) -> int:
+        return self.stale_after_minutes or self.interval_minutes + max(60, self.interval_minutes // 2)
 
 
 class Configuration:

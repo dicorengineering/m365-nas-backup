@@ -52,7 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build portable container
-        run: docker build --tag ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.5 .
+        run: docker build --tag ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6 .
       - name: Export classic archive and test fresh import on Docker 24
         run: python3 -m scripts.package_image
       - name: Test shipped Compose, persistence and resource limits with synthetic mail
@@ -73,7 +73,7 @@ jobs:
           (cd dist && sha256sum *.tar.gz compose.yaml INSTALL.md *-report.json SOURCE-COMMIT.txt docs/*.md > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
-          name: M365Backup-0.1.0-alpha.5-docker-amd64
+          name: M365Backup-0.1.0-alpha.6-docker-amd64
           path: dist/
           retention-days: 90
           if-no-files-found: error

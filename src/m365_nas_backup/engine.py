@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import shutil
+import time
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -47,10 +48,19 @@ class Engine:
             try:
                 for mailbox in enabled:
                     job = self.repo.begin(mailbox.user)
+                    started = time.monotonic()
                     try:
                         manifest = self._mailbox(graph, mailbox.user, settings)
+                        manifest["statistics"]["duration_seconds"] = round(time.monotonic() - started, 2)
                         self.repo.commit(job, manifest)
-                        results.append({"mailbox": mailbox.user, "status": "success", "snapshot": job})
+                        results.append(
+                            {
+                                "mailbox": mailbox.user,
+                                "status": "success",
+                                "snapshot": job,
+                                **manifest["statistics"],
+                            }
+                        )
                     except Exception as exc:
                         code = error_code(exc)
                         self.repo.fail(job, code)
@@ -82,6 +92,12 @@ class Engine:
             "folders": {},
             "scope": "email-folders",
             "excluded_folders": [],
+            "statistics": {
+                "mode": "incremental" if previous else "initial",
+                "exported_items": 0,
+                "downloaded_bytes": 0,
+                "reset_folders": 0,
+            },
         }
         for folder in folders:
             if folder.get("type") != "IPF.Note":
@@ -92,21 +108,44 @@ class Engine:
             fid = folder["id"]
             old = previous["folders"].get(fid) if previous else None
             try:
-                state = self._folder(graph, mailbox_id, folder, old, settings)
+                state = self._folder(graph, mailbox_id, folder, old, settings, manifest["statistics"])
             except GraphError as exc:
                 if exc.status != 410 or not old:
                     raise
                 # Delta expiration: rebuild only this folder; retain previous snapshots.
-                state = self._folder(graph, mailbox_id, folder, None, settings)
+                manifest["statistics"]["reset_folders"] += 1
+                state = self._folder(
+                    graph, mailbox_id, folder, old, settings, manifest["statistics"], reset=True
+                )
             manifest["folders"][fid] = state
         if not manifest["folders"]:
             raise ValueError("No email folders were discovered; refusing an empty baseline")
         manifest["captured_finished"] = utcnow()
+        before = {
+            (fid, iid): item["changeKey"]
+            for fid, f in (previous or {}).get("folders", {}).items()
+            for iid, item in f["items"].items()
+        }
+        after = {
+            (fid, iid): item["changeKey"]
+            for fid, f in manifest["folders"].items()
+            for iid, item in f["items"].items()
+        }
+        manifest["statistics"].update(
+            new_items=len(after.keys() - before.keys()),
+            deleted_items=len(before.keys() - after.keys()),
+            changed_items=sum(before[key] != after[key] for key in before.keys() & after.keys()),
+            unchanged_items=sum(before[key] == after[key] for key in before.keys() & after.keys()),
+        )
         return manifest
 
-    def _folder(self, graph, mailbox_id, folder, old, settings):
-        state = {"metadata": folder, "items": copy.deepcopy(old["items"]) if old else {}, "cursor": None}
-        cursor = old["cursor"] if old else None
+    def _folder(self, graph, mailbox_id, folder, old, settings, statistics, reset=False):
+        state = {
+            "metadata": folder,
+            "items": copy.deepcopy(old["items"]) if old and not reset else {},
+            "cursor": None,
+        }
+        cursor = old["cursor"] if old and not reset else None
         for page in graph.delta(mailbox_id, folder["id"], cursor):
             changed = {}
             for item in page["value"]:
@@ -118,9 +157,19 @@ class Engine:
                     changed[iid] = item
             # One message per export prevents a batch of large attachments filling NAS RAM.
             for iid in changed:
+                item = changed[iid]
+                saved = state["items"].get(iid) or (old or {}).get("items", {}).get(iid)
+                if saved and item.get("changeKey") and item["changeKey"] == saved["changeKey"]:
+                    # Replayed delta entries and cursor resets need no new payload.
+                    # A reset still rebuilds membership from the fresh enumeration.
+                    if not self.repo.has_object(saved["blob"]):
+                        raise ValueError("A saved backup object is missing; verify the repository")
+                    state["items"][iid] = saved
+                    continue
                 self._space(settings)
                 export = graph.export(mailbox_id, [iid])[iid]
-                item = changed[iid]
+                statistics["exported_items"] += 1
+                statistics["downloaded_bytes"] += len(export["bytes"])
                 if item.get("changeKey") and item["changeKey"] != export["changeKey"]:
                     raise ValueError("Item changed during export; retry the backup")
                 description = graph.describe(mailbox_id, folder["id"], iid)
@@ -152,7 +201,7 @@ class Engine:
             issue = None
             if not snap:
                 issue = "no_completed_backup"
-            elif age > settings.stale_after_minutes:
+            elif age > settings.overdue_minutes:
                 issue = "overdue"
             elif attempt and attempt["status"] == "failed":
                 issue = attempt["error"] or "failed"

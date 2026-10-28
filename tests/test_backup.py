@@ -41,6 +41,7 @@ def test_failed_export_preserves_snapshot_and_cursor(completed):
     _, repo, graph, engine = completed
     baseline = copy.deepcopy(repo.latest("test@example.com"))
     graph.fail_export = True
+    graph.state["inbox"]["one"]["key"] = "v2"
     graph.revision += 1
     result = engine.backup()
     assert result[0]["status"] == "failed"

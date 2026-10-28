@@ -1,6 +1,7 @@
 """Portable entry point. All secrets remain in a private configuration directory."""
 
 import argparse
+import getpass
 import json
 import os
 from pathlib import Path
@@ -43,6 +44,10 @@ def main():
     serve = sub.add_parser("serve")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8765)
+    password = sub.add_parser(
+        "set-password", help="Set/reset the local console administrator; revokes sessions"
+    )
+    password.add_argument("username")
     sub.add_parser("backup")
     sub.add_parser("status")
     sub.add_parser("retention-preview")
@@ -56,6 +61,15 @@ def main():
     if (args.data / "catalog.sqlite3").exists() and not (args.config / "encryption.key").exists():
         parser.error("Existing backup repository has no encryption key. Restore the original configuration.")
     config = Configuration(args.config)
+    if args.command == "set-password":
+        from .auth import set_account
+
+        password = getpass.getpass("New password (at least 12 characters): ")
+        if password != getpass.getpass("Confirm password: "):
+            parser.error("Passwords do not match")
+        set_account(config, args.username, password)
+        print("Administrator saved. Existing sessions and administrator-token access are revoked.")
+        return
     certificates(config)
     repo = Repository(args.data, config.secret("encryption.key"))
     engine = Engine(config, repo)

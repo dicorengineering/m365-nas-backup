@@ -79,6 +79,10 @@ class Repository:
         atomic_write(target, b"MNB1" + nonce + encrypted)
         return digest
 
+    def has_object(self, digest: str) -> bool:
+        # Fast presence check; full decryption/hash validation is an explicit Verify.
+        return self._path(digest).is_file()
+
     def get(self, digest: str) -> bytes:
         raw = self._path(digest).read_bytes()
         if raw[:4] != b"MNB1" or len(raw) < 32:

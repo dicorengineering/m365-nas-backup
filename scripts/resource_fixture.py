@@ -111,6 +111,11 @@ def main():
         revision = 2
         second = engine.backup()[0]
         assert second["status"] == "success", second
+        assert second["exported_items"] == 1 and second["downloaded_bytes"] == 64 * 1024
+        assert second["unchanged_items"] == TOTAL - 2
+        # Replay the same delta: no payload downloads, even for the large messages.
+        third = engine.backup()[0]
+        assert third["status"] == "success" and third["exported_items"] == 0
         assert repo.snapshots()[0]["item_count"] == TOTAL - 1
         repo.verify(first["snapshot"])
         repo.verify(second["snapshot"])
@@ -127,6 +132,9 @@ def main():
                 "large_items": 2,
                 "large_item_bytes": 16 * 1024**2,
                 "max_export_batch": max_batch,
+                "initial_downloaded_bytes": first["downloaded_bytes"],
+                "incremental_downloaded_bytes": second["downloaded_bytes"],
+                "replayed_delta_downloaded_bytes": third["downloaded_bytes"],
                 "workload_peak_rss_mib": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 2),
                 "duration_seconds": round(time.monotonic() - started, 2),
                 "limitations": "Synthetic HTTP responses; no live tenant or NAS. Main web service runs concurrently. Not a large-mailbox capacity guarantee.",

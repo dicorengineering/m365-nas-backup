@@ -1,20 +1,23 @@
-"""Private administration API and status checks; all data routes require tokens."""
+"""Private administration API and status checks; data routes require authenticated sessions."""
 
 import asyncio
 import hmac
+import os
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from filelock import FileLock, Timeout
 from pydantic import BaseModel, ConfigDict, Field
 
 from . import __version__
+from .auth import COOKIE, SESSION_SECONDS, Authentication, account
 from .comparison import page_comparison
 from .config import Configuration, Settings
 from .credentials import activate_certificate, certificate_status, prepare_certificate
@@ -22,6 +25,23 @@ from .engine import Engine, error_code
 from .graph import AppToken
 from .metadata import item_subject
 from .repository import Repository
+from .schedule import next_backup_at
+
+
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    username: str = Field(min_length=1, max_length=80)
+    password: str = Field(min_length=1, max_length=1024)
+
+
+class SetupRequest(LoginRequest):
+    setup_code: str = Field(min_length=1, max_length=256)
+
+
+class PasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_password: str = Field(min_length=1, max_length=1024)
+    password: str = Field(min_length=12, max_length=1024)
 
 
 class Selection(BaseModel):
@@ -88,6 +108,7 @@ class Runner:
 def create_app(config: Configuration, repo: Repository, engine: Engine | None = None) -> FastAPI:
     engine = engine or Engine(config, repo)
     runner = Runner()
+    auth = Authentication(config)
     service_lock = FileLock(str(repo.directory / ".service.lock"))
 
     @asynccontextmanager
@@ -97,12 +118,16 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
                 repo.recover_interrupted()
 
             async def scheduler():
-                next_run = time.monotonic()
                 while True:
-                    settings = config.load()
-                    if settings.scheduler_enabled and not runner.busy and time.monotonic() >= next_run:
-                        runner.start("backup", engine.backup)
-                        next_run = time.monotonic() + settings.interval_minutes * 60
+                    due = next_backup_at(repo, config.load())
+                    if due and not runner.busy and datetime.now(UTC) >= due:
+                        try:
+                            runner.start("backup", engine.backup)
+                        except HTTPException as exc:
+                            # Another request may start between the busy check and
+                            # taking Runner's guard. Keep the scheduler alive.
+                            if exc.status_code != 409:
+                                raise
                     await asyncio.sleep(10)
 
             task = asyncio.create_task(scheduler())
@@ -146,20 +171,82 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
         )
         return response
 
+    def browser_request(request: Request):
+        # A custom header prevents cross-origin forms from invoking authenticated
+        # mutations; CORS is deliberately not enabled. SameSite adds another boundary.
+        if request.headers.get("x-m365-request") != "1":
+            raise HTTPException(403, "A same-origin console request is required")
+
     def authenticate(request: Request, allow_monitor=False):
         header = request.headers.get("authorization", "")
         token = header[7:] if header.startswith("Bearer ") else ""
-        if hmac.compare_digest(token, config.token()):
+        # Existing admin tokens work only until the first password account is created.
+        if not account(config) and hmac.compare_digest(token.encode(), config.token().encode()):
             return
-        if allow_monitor and hmac.compare_digest(token, config.token(monitor=True)):
+        if allow_monitor and hmac.compare_digest(token.encode(), config.token(monitor=True).encode()):
             return
-        raise HTTPException(401, "A valid access token is required", headers={"WWW-Authenticate": "Bearer"})
+        if auth.valid(request.cookies.get(COOKIE, "")):
+            if request.method not in ("GET", "HEAD", "OPTIONS"):
+                browser_request(request)
+            return
+        raise HTTPException(401, "Sign in to continue")
 
     def admin(request: Request):
         authenticate(request)
 
     def monitor(request: Request):
         authenticate(request, allow_monitor=True)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request, exc):
+        # Never echo request input (especially passwords/setup codes) in errors.
+        return JSONResponse(
+            {"detail": [{"loc": e["loc"], "msg": e["msg"]} for e in exc.errors()]}, status_code=422
+        )
+
+    @app.get("/api/auth/session")
+    def session(request: Request):
+        return {
+            "configured": bool(account(config)),
+            "authenticated": auth.valid(request.cookies.get(COOKIE, "")),
+        }
+
+    def session_response(request, token):
+        response = JSONResponse({"authenticated": True})
+        response.set_cookie(
+            COOKIE,
+            token,
+            max_age=SESSION_SECONDS,
+            httponly=True,
+            samesite="strict",
+            secure=request.url.scheme == "https" or os.getenv("M365_COOKIE_SECURE") == "true",
+            path="/",
+        )
+        return response
+
+    @app.post("/api/auth/login", dependencies=[Depends(browser_request)])
+    def login(request: Request, body: LoginRequest):
+        token = auth.login(body.username, body.password)
+        auth.logout(request.cookies.get(COOKIE, ""))
+        return session_response(request, token)
+
+    @app.post("/api/auth/setup", dependencies=[Depends(browser_request)])
+    def setup_account(request: Request, body: SetupRequest):
+        return session_response(request, auth.setup(body.setup_code, body.username, body.password))
+
+    @app.post("/api/auth/logout", dependencies=[Depends(browser_request)])
+    def logout(request: Request):
+        auth.logout(request.cookies.get(COOKIE, ""))
+        response = JSONResponse({"authenticated": False})
+        response.delete_cookie(COOKIE, path="/")
+        return response
+
+    @app.post("/api/auth/password", dependencies=[Depends(admin), Depends(browser_request)])
+    def password(body: PasswordRequest):
+        auth.change_password(body.current_password, body.password)
+        response = JSONResponse({"authenticated": False})
+        response.delete_cookie(COOKIE, path="/")
+        return response
 
     @app.exception_handler(KeyError)
     async def missing(request, exc):
@@ -198,6 +285,8 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
                 "operation": runner.last,
                 "busy": runner.busy,
                 "version": __version__,
+                "next_backup": next_backup_at(repo, config.load()),
+                "overdue_minutes": config.load().overdue_minutes,
                 "comparison": {k: v for k, v in current_comparison.items() if k != "items"}
                 if current_comparison
                 else None,
@@ -260,6 +349,21 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
     def backup():
         return runner.start("backup", engine.backup)
 
+    @app.get("/api/mailboxes", dependencies=[Depends(admin)])
+    def recovery_mailboxes():
+        labels = {m.user: m.label or m.user for m in config.load().mailboxes}
+        with repo.db() as db:
+            return [
+                {
+                    "mailbox": r["mailbox"],
+                    "label": labels.get(r["mailbox"], r["mailbox"]),
+                    "points": r["points"],
+                }
+                for r in db.execute(
+                    "SELECT mailbox, COUNT(*) AS points FROM snapshots GROUP BY mailbox ORDER BY mailbox"
+                )
+            ]
+
     @app.get("/api/snapshots", dependencies=[Depends(admin)])
     def snapshots(
         mailbox: str | None = None, limit: int = Query(200, ge=1, le=1000), offset: int = Query(0, ge=0)
@@ -299,7 +403,15 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
             "total": len(matches),
             "items": matches[offset : offset + limit],
             "excluded_folders": manifest.get("excluded_folders", []),
+            "statistics": manifest.get("statistics"),
         }
+
+    @app.get("/api/snapshots/{snapshot_id}/selection", dependencies=[Depends(admin)])
+    def saved_selection(snapshot_id: str, q: str = Query("", max_length=200)):
+        data = items(snapshot_id, q, 0, 1001)
+        if data["total"] > 1000:
+            raise HTTPException(400, "More than 1000 messages match. Narrow the search or select one page.")
+        return [{"folder_id": r["folder_id"], "item_id": r["item_id"]} for r in data["items"]]
 
     @app.post("/api/snapshots/{snapshot_id}/compare", status_code=202, dependencies=[Depends(admin)])
     def compare(snapshot_id: str):
@@ -365,5 +477,5 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
     def index():
         return FileResponse(static / "index.html")
 
-    app.state.engine, app.state.runner = engine, runner
+    app.state.engine, app.state.runner, app.state.auth = engine, runner, auth
     return app

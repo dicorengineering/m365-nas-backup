@@ -49,7 +49,7 @@ def test_invalid_schedule_and_retention_rejected(setup):
         data["retention"]["days"] = 0
         assert client.put("/api/settings", headers=headers, json=data).status_code == 422
         data = config.load().model_dump()
-        data["stale_after_minutes"] = data["interval_minutes"]
+        data["interval_minutes"] = 14
         assert client.put("/api/settings", headers=headers, json=data).status_code == 422
 
 
@@ -83,3 +83,36 @@ def test_static_ui_has_security_headers(setup):
         assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
         assert response.headers["Cache-Control"] == "no-store"
         assert client.get("/static/app.js").status_code == 200
+
+
+def test_recovery_mailbox_list_includes_retained_disabled_accounts_and_bulk_selection(completed):
+    client, config = client_for(completed)
+    _, repo, _, _ = completed
+    first = repo.snapshots()[0]["id"]
+    manifest = repo.manifest(first)
+    manifest["user"] = "retired@example.com"
+    job = repo.begin("retired@example.com")
+    repo.commit(job, manifest)
+    with client:
+        headers = {"Authorization": "Bearer " + config.token()}
+        mailboxes = client.get("/api/mailboxes", headers=headers).json()
+        assert {m["mailbox"] for m in mailboxes} == {"test@example.com", "retired@example.com"}
+        assert len(client.get("/api/snapshots?mailbox=test@example.com", headers=headers).json()) == 1
+        rows = client.get("/api/snapshots/" + first + "/selection?q=Invoice", headers=headers).json()
+        assert rows == [{"folder_id": "inbox", "item_id": "one"}]
+        assert client.get("/api/snapshots/" + first + "/selection?q=absent", headers=headers).json() == []
+
+
+def test_bulk_saved_selection_limit(completed):
+    client, config = client_for(completed)
+    _, repo, _, _ = completed
+    manifest = repo.latest("test@example.com")
+    item = manifest["folders"]["inbox"]["items"]["one"]
+    manifest["folders"]["inbox"]["items"] = {str(i): item for i in range(1001)}
+    job = repo.begin("test@example.com")
+    repo.commit(job, manifest)
+    with client:
+        response = client.get(
+            "/api/snapshots/" + job + "/selection", headers={"Authorization": "Bearer " + config.token()}
+        )
+        assert response.status_code == 400

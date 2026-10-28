@@ -11,13 +11,83 @@ that mailbox to have been saved.
 After restart the latest-operation panel clears, but snapshots, mailbox attempt status and
 restore records persist. Restore records are available through `GET /api/restores`.
 
-Enable scheduling after acceptance. Default interval: 60 minutes; overdue threshold: 180 minutes.
-The threshold must exceed the interval and allow for a full large-mailbox run. Enabled schedules
-begin promptly on service startup. Keep the NAS clock synchronized.
+Enable scheduling after acceptance. Choose **Every 12 hours**, **Every day (24 hours)**, hourly,
+or a custom interval of 15–10,080 minutes. The next run is due that interval after the previous
+attempt finishes; it is not a fixed wall-clock time. Restarting preserves this timing. With no
+previous attempt, an enabled schedule starts promptly. An overdue schedule runs once when the
+service resumes; missed runs are not queued. Manual runs also reset the interval. A failed run
+waits for the next interval unless you choose **Back up now**. Keep the NAS clock synchronized.
+
+Leave **Overdue threshold** empty for interval plus 50% (at least 60 extra minutes).
+Daily means 2,160 minutes/36 hours; every 12 hours means 1,080 minutes/18 hours.
+A custom threshold allows extra time for large mailboxes. Raising the interval above an existing
+threshold switches to automatic monitoring instead of refusing to save. Overview shows the next
+due time and effective threshold. New settings take effect on the next scheduler check (within
+10 seconds), after any active operation finishes.
 
 Green means every currently enabled mailbox has a recent completed backup, its latest attempt
 has not failed, and sufficient free storage remains. It does not mean a live restore was tested
 or the second NAS is current. Removed/disabled mailboxes are no longer monitored.
+
+## Sign-in and password recovery
+
+Alpha 6 uses one local administrator username/password. On the first visit after installing
+or upgrading, enter your existing **admin.token** as the **One-time setup code**, then choose
+a username and a password of at least 12 characters. Read the code with:
+
+```sh
+docker exec m365-nas-backup cat /config/admin.token
+```
+
+Never post the code/password in support messages. Account creation disables administrator-token
+access, including old API scripts; Kuma's separate monitor token keeps working. Subsequent
+visits use only the username/password. Sessions survive page reloads, expire after 12 hours,
+and end on sign-out, password change or container restart. Sign-in is rate limited to five
+attempts per minute per installation. Wait a minute after a 429 response.
+
+**Settings → Console password** changes the password and signs out all sessions.
+If forgotten, a NAS administrator can set/reset the account without deleting config or backups:
+
+```sh
+docker exec -it m365-nas-backup m365-backup set-password YOUR_USERNAME
+```
+
+Or run `m365-backup set-password YOUR_USERNAME` in Container Station's interactive container
+terminal. It prompts twice without putting the password in command history. This also revokes
+existing sessions. The username/password belongs to this application, not Microsoft or QNAP.
+Keep `/config/account.json` with the rest of the protected configuration backup.
+
+Passwords are stored as salted PBKDF2-SHA256 hashes (600,000 iterations), following the
+[OWASP work-factor guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html).
+Authentication adds no database service. Browser sessions use HttpOnly, SameSite cookies;
+state-changing requests require the console's custom header. No password/token is saved in
+localStorage. Use HTTPS or protected Tailscale for traffic privacy. For an HTTPS reverse proxy,
+preserve the Host header and set `M365_COOKIE_SECURE=true` on the container to require Secure
+cookies; do not enable that setting for a direct HTTP-only installation.
+
+## Incremental transfers and speed
+
+The first backup downloads all supported messages and attachments. Subsequent runs use
+[Microsoft Graph delta tracking](https://learn.microsoft.com/en-us/graph/api/mailboxitem-delta?view=graph-rest-1.0).
+New/changed versions download; unchanged versions reuse their encrypted local data. Alpha 6
+also skips payload and metadata downloads when Microsoft replays an unchanged item. If Microsoft
+expires a folder's cursor, the app lists that folder again but reuses matching saved versions.
+The previous successful cursor is committed only with a complete new recovery point.
+
+Overview reports new, changed, unchanged and removed messages, downloaded count/MB and duration
+(in Operation details). Selecting a recovery point shows its transfer summary; older points have
+no statistics. A recovery point listing 50,000 messages does **not** mean 50,000 were downloaded
+again. Each point contains a complete index referencing shared stored objects, so restoring it
+does not require replaying a chain of incremental backups. Retention preserves objects needed
+by every retained point.
+
+A 7.5 GB mailbox needs an initial transfer; its next run normally transfers only changed items.
+Changing flags/properties can also change Microsoft's version and require a new export.
+Moves that change item/folder identity can require another export and appear as removed/new.
+Downloads stay sequential, one item per export, to bound RAM on smaller NAS devices.
+Lightweight metadata enumeration and writing the encrypted recovery index still take time.
+Reused objects are checked for presence when encountered; run **Verify this backup** periodically
+to read/decrypt/hash every object. Incremental transfer success alone is not a full disk-integrity scan.
 
 ## Adjustable history
 
@@ -48,9 +118,9 @@ is needed when that metadata contains the subject. Truly absent/empty subjects r
 
 ## Browse and restore email
 
-1. In **Recovery**, choose the source mailbox/date from **Recovery point**. Use **Load older recovery points** to access history beyond the first 1,000 points.
-2. A read-only comparison scans the current **source** mailbox's email metadata. It does not create a backup or change any mail. If another operation is busy, use **Compare with current mailbox** once it finishes.
-3. Choose **Missing**, **Changed**, **Moved**, **Only in current mailbox**, or **Everything**. Search subject/folder, then use **Select all matching differences** (across pages) or **Select this page**. You can deselect individual messages. Selection persists while paging/filtering; **Clear selection** resets it. New messages have no version in this recovery point and cannot be selected.
+1. In **Recovery**, choose **Email account**, then a dated **Recovery point**. Only that account’s backups are listed. **Load older recovery points** adds the next 200. Saved contents load without contacting Microsoft.
+2. Optionally click **Compare with current mailbox** to scan the current **source** mailbox’s metadata. It does not create a backup or change any mail. You can select saved messages without running a comparison.
+3. Choose **Missing**, **Changed**, **Moved**, **Only in current mailbox**, or **Everything**. Search subject/folder, then use **Select all matching messages** (across pages) or **Select this page**. You can deselect individual messages. Selection persists while paging/filtering; **Clear selection** resets it. New messages have no version in this recovery point and cannot be selected.
 4. Choose a destination from the explicitly configured mailboxes.
 5. Click **Review restore** and confirm destination/count.
 6. Confirm; follow the latest operation in Overview.
@@ -116,15 +186,24 @@ Loopback-only binding is not remotely reachable. HTTP polling is implemented; Ku
 
 ## API reference
 
-All `/api/*` routes require the administrator bearer token.
+Data routes require an authenticated administrator session. GET /api/auth/session reports
+whether initial setup is needed. POST /api/auth/login accepts username and password,
+sets the session cookie, and requires the header "X-M365-Request: 1". Retain the cookie for
+subsequent requests and include that header on mutations. POST /api/auth/logout invalidates
+the cookie. POST /api/auth/setup additionally accepts setup_code and works only before an
+account exists. POST /api/auth/password accepts current_password and password and revokes
+all sessions. Administrator bearer tokens work only before account setup. The separate
+monitor token works for /backup-status. Do not hard-code credentials in scripts.
 
 | Method/route | Purpose |
 | --- | --- |
-| GET `/api/status` | Coverage, space, active/latest operation |
+| GET `/api/status` | Coverage, space, active/latest operation, next due time, monitoring threshold |
+| GET `/api/mailboxes` | Mailboxes with retained backups and recovery-point counts |
 | GET/PUT `/api/settings` | Read/replace validated non-secret settings |
 | POST `/api/backup` | Start backup; send `{}` |
 | GET `/api/snapshots?mailbox=…&limit=200` | Completed points, maximum 1,000 per response |
-| GET `/api/snapshots/{id}/items?q=…&offset=0&limit=100` | Browse items |
+| GET `/api/snapshots/{id}/items?q=…&offset=0&limit=100` | Browse items and transfer statistics |
+| GET `/api/snapshots/{id}/selection?q=…` | Matching saved item IDs, maximum 1,000 |
 | POST `/api/snapshots/{id}/verify` | Start verification; send `{}` |
 | GET `/api/retention/preview` | Eligible removals and confirmation |
 | POST `/api/retention/apply` | Send `{"confirmation":"…"}` |
@@ -151,7 +230,8 @@ Settings never return private keys/tokens. Public certificates have authenticate
 | Web shortcut fails | Default loopback binding; use the SSH tunnel or protected Tailscale/HTTPS route |
 | Container killed / exit 137 | Inspect OOM status and memory use; see [resource guidance](RESOURCES.md) |
 | Image pull/access denied | Import the bundled image first and disable forced image pulling |
-| 401 | Correct admin/monitor token and exact Bearer header |
+| 401 | Sign in again, or check the monitor token for Kuma |
+| 429 during sign-in | Wait a minute; at most five attempts per minute |
 | `graph_401_…` | IDs, correct uploaded certificate, expiry, consent |
 | `graph_403_…` | Exact application permissions, consent, tenant policy |
 | `graph_429_…` / `retry_later` | Throttling; allow later run, adjust interval if needed |

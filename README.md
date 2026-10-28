@@ -12,7 +12,11 @@ to one Microsoft 365 tenant; no organization-specific configuration is built in.
 
 **[Install with docker pull](docs/REGISTRY-INSTALL.md)** — preferred for QNAP.
 
-Docker alpha 5 is [tested and available](https://github.com/dicorengineering/m365-nas-backup/actions/runs/40593160484). It fixes blank subjects, compares backups with the current mailbox, selects differences in bulk, and adds staged certificate renewal. [Upgrade an existing installation](docs/REGISTRY-INSTALL.md#upgrade-an-existing-container-station-application-to-alpha-5). Optional offline bundles are under the successful run’s Artifacts.
+Docker alpha 6 adds username/password sign-in, daily/12-hour schedules, and mailbox-first
+recovery with an optional live comparison. Incremental transfers skip replayed unchanged
+messages and report downloaded counts/bytes. It includes the alpha 5 subject-format fix.
+[Upgrade instructions](docs/REGISTRY-INSTALL.md#upgrade-an-existing-container-station-application-to-alpha-6).
+Check the successful private Actions run before using a newly published tag.
 
 - **QNAP users:** [Installation and first access](docs/QNAP-INSTALL.md)
 - [Microsoft 365 application setup](docs/MICROSOFT-SETUP.md)
