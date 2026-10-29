@@ -17,6 +17,9 @@ durable restore progress with safe manual resume, and optional saved MIME copies
 EML ZIP exports. It retains password sign-in, daily/12-hour scheduling and incremental backups.
 [Upgrade instructions](docs/REGISTRY-INSTALL.md#upgrade-an-existing-container-station-application-to-alpha-7)
 and [whole-mailbox/Outlook instructions](docs/MAILBOX-RECOVERY.md).
+[Alpha 7 passed release checks](https://github.com/dicorengineering/m365-nas-backup/actions/runs/40829876473):
+126 tests on Python3.12/3.13, browser workflows, Docker resource/persistence checks and private registry pull.
+These are synthetic checks; real tenant/NAS/Outlook acceptance remains necessary.
 
 - **QNAP users:** [Installation and first access](docs/QNAP-INSTALL.md)
 - [Microsoft 365 application setup](docs/MICROSOFT-SETUP.md)

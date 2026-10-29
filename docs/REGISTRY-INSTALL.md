@@ -105,3 +105,14 @@ the backup app, granting consent, enabling the setting and completing a new back
 storage/download work; existing versions without MIME still restore through Exchange.
 All three persistent volumes are used, including /exports for generated unencrypted ZIPs.
 The upgrade itself makes no tenant permission changes.
+
+## Verified alpha 7 build
+
+The [successful release run](https://github.com/dicorengineering/m365-nas-backup/actions/runs/40829876473)
+built and tested source49090aad43038c398b65d626c83a6b52d8b5e736 and verified an actual private pull.
+The registry digest is:
+
+    sha256:3e2e154a64f9c79f1beab4e72705a552fbb02f584ea7ef3808b7f0bfa295f8b8
+
+The same run contains the prebuilt offline image and instructions as
+M365Backup-0.1.0-alpha.7-docker-amd64. Keep using the existing volume names when updating.

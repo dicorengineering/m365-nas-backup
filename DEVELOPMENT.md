@@ -1,139 +1,123 @@
-# Restart checkpoint — alpha 7 recovery work in progress
+# Restart checkpoint — alpha 7 delivered
 
-Updated 2026-10-29. User requested whole-mailbox disaster recovery directly into a replacement
-mailbox, plus an export usable with classic Outlook for Windows. Continue this authorized work.
-Keep repository/package PRIVATE. No NAS deployment, tenant changes or real-mail restore.
-Continuation automation remains PAUSED. No subagents.
+Updated 2026-10-29. Requested implementation and private Docker release complete.
+Wait for user feedback before further development. Read AGENTS.md and inspect Git state.
+No subagents unless explicitly requested. Repository and GHCR package stay PRIVATE.
+Do not deploy to the NAS, modify the tenant or restore real mail without user direction.
+Continuation automation continue-m365-nas-backup remains PAUSED; do not resume or duplicate.
 
-Implemented; preparing alpha7 release build, not yet published:
-- Whole-mailbox preview/confirm, standard folder identity mapping and custom hierarchy.
-  Empty, separately configured replacement identity required; source can be gone.
-  Durable per-write journal, explicit safe resume, uncertain writes blocked after restart.
-  Source point pinned against retention until success or explicit abandonment.
-- Optional portable_email_enabled setting: save Graph MIME alongside opaque Exchange data,
-  map exact MAPI EntryID through translateExchangeIds, check version before/after capture.
-  Backfill unchanged items in a NEW snapshot; no changes to old points. Extra Mail.Read needed.
-- Offline full/selected EML ZIP export with authenticated downloads/deletion, coverage checks,
-  protected partial files, startup cleanup. MIME refs included in verify, pruning and bundles.
-- Web controls for all above. No native PST converter: classic Outlook PST export follows
-  Exchange restoration and full sync. EML remains portable content/attachments, not Exchange fidelity.
+## Delivered release
 
-Validation so far: original83 tests pass;16 new whole-mailbox tests pass (including1002 imports,
-resume/no duplicates, uncertain restart and retention pin);19 MIME/export tests pass.
-Ruff and JS syntax pass. Browser coverage, docs and alpha7 version bump are ready.
-Next push the final release build and inspect CI, Docker/private pull and screenshot artifacts.
-Do not push a running release build with alpha6 tag: it is already published. Work checkpoints
-use [skip ci]; final release code must bump every package/image reference to alpha7 first.
+Image ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7
+Console version 0.1.0a7
+Digest sha256:3e2e154a64f9c79f1beab4e72705a552fbb02f584ea7ef3808b7f0bfa295f8b8
+Tested source 49090aad43038c398b65d626c83a6b52d8b5e736
+Successful CI https://github.com/dicorengineering/m365-nas-backup/actions/runs/40829876473
+Offline artifact M365Backup-0.1.0-alpha.7-docker-amd64 in that run. No separate GitHub Release.
+Registry report confirms PRIVATE visibility and actual pull matching the tested image.
+Package repository association is still null in API metadata; owner access works, other users
+may need package-specific access. Never overwrite this published tag; future code needs alpha8.
+This final checkpoint/docs update is a [skip ci] commit after the tested code.
 
-Next: extend scripts/browser_smoke.py, document docs/RECOVERY.md and updated setup/usage,
-test all, commit/push alpha7, watch CI including Docker/resources/private pull verification,
-inspect browser artifacts. Finish with tested digest/instructions and updated checkpoint.
-No real tenant/QNAP/Outlook acceptance by agent.
+126 tests passed on Linux Python3.12/3.13, Ruff/format, JS syntax and dependency audit.
+Playwright passed account setup/login/logout, schedule, selected recovery, optional comparison,
+whole-mailbox recovery progress, EML download/content verification and export deletion.
+Desktop and mobile recovery screenshots downloaded to ignored build/alpha7-browser and reviewed.
+Docker24 classic archive import/start, shipped Compose, volume/config/account persistence,
+Kuma authentication,512MiB/oneCPU resource limits and private registry pull passed.
+Synthetic2000x64KiB+2x16MiB: initial164626432bytes, incremental65536bytes, replay0bytes.
+Idle service RSS69.63MiB, synthetic process peak180.57MiB; container peak395071488bytes
+including cache, no OOM. Optional large-mailbox MIME/export/restore not resource-benchmarked.
+No actual tenant/NAS/Outlook acceptance performed by agent.
 
-Prior delivered checkpoint follows for environment and alpha6 details.
+## User decisions/context
 
-# Restart checkpoint — alpha 6 delivered
+User requested full email disaster recovery directly into a replacement mailbox, plus export
+usable with classic Outlook for Windows. Latest continue request authorized completion.
+QNAP TS-453A, QTS5.2.10.3577, Container Station3.1.2.1742, modest hardware.
+Docker-only: user explicitly abandoned the QPKG wrapper. Do not revisit it.
+NAS refuses SSH port forwarding; preserve their working direct browser port binding.
+General-purpose single-tenant install. User values concise updates and efficient usage.
+User previously reported real backups working; this is not comprehensive restore acceptance.
 
-Updated 2026-10-28. Requested work complete; wait for user feedback before more development.
-Read AGENTS.md and inspect Git state. No subagents unless explicitly requested.
-Keep repository/package PRIVATE. No NAS deployment, tenant changes or real-mail restores
-without further user direction. Continuation heartbeat remains PAUSED; do not duplicate/resume.
+## Alpha7 behavior
 
-## Delivered image and validation
-Private repository https://github.com/dicorengineering/m365-nas-backup (verified PRIVATE).
-Private image ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6, console version0.1.0a6.
-Digest sha256:b86f3546e9498e5adb63a53bcc32f3f322d2068c02474c778c808d923c5f9649
-Tested source c44b6be5e7307f95414345ad3c4e71afbd7e4f94
-Successful CI https://github.com/dicorengineering/m365-nas-backup/actions/runs/40781502912
-Offline artifact M365Backup-0.1.0-alpha.6-docker-amd64. No separate GitHub Release.
-Registry report verifies private visibility and an actual pull matching the tested image.
-Package repository association is absent in API metadata; owner access works, other users
-may need explicit package access. Do not make public. Never overwrite this published tag.
-This checkpoint and small documentation corrections follow in a [skip ci] commit.
+Whole-mailbox recovery (mailbox_restore.py):
+- Separate mode from selected-message recovery, which still defaults to a new recovery folder.
+- All saved email folders/messages, no1000-selection cap; sequential imports.
+- Explicit configured destination, restore enabled, empty supported email folders, different
+  mailbox identity from snapshot. Recreated same address with new identity is allowed.
+- No source access needed. Uses destination credentials and stored snapshot.
+- Standard folders mapped by wellKnownName (locale independent); custom hierarchy/emptyfolders.
+  Normal structural root inferred from Inbox parent; unsupported non-email parent/cycle/
+  ambiguous siblings or missing required standards fail before writes.
+- Preview confirmation bound to immutable manifest digest, resolved target and folder plan.
+  Rechecks target before start; verifies all Exchange objects before writes.
+- SQLite recovery_jobs plan, recovery_steps per write, restores compact progress summary.
+  Pending journal recorded before create/import, done only after response. Known4xx rejection
+  except408 can clear pending for explicit resume. Unknown/uncertain responses block resume.
+- Resume only failed jobs, same mailbox identity, saved manifest, folders and expected counts.
+  Skips confirmed steps. Keep destination isolated; counts cannot detect every same-count edit.
+- Restart marks running jobs uncertain and preserves confirmed whole-job progress. No auto retry.
+- Running/failed/uncertain whole jobs pin source point against retention. Success/explicit abandon
+  releases pin. Abandon does not remove Exchange mail. Journal/plan metadata is plaintext in
+  operational SQLite; message objects/manifests encrypted as before.
 
-83 tests passed on Linux Python3.12/3.13, Ruff/format, JS syntax, runtime dependency audit.
-Playwright passed account setup, password login/logout, reload session, daily scheduling,
-mailbox-first recovery, explicit comparison, bulk selection and fake-mail restore confirmation.
-Recovery/mobile screenshots from prior f899a14 run reviewed visually (same final UI).
-First CI40781197151 passed tests/browser then was cancelled before publication to reduce
-temporary metadata copies. Final CI reran everything successfully.
-Docker24 classic archive import/start, shipped Compose, password/config/exports persistence
-after recreation, Kuma authentication and 512MiB/oneCPU resource checks passed.
-Synthetic 2000x64KiB+2x16MiB: initial164626432bytes, changed-only65536bytes, replay0bytes.
-Idle web RSS69.79MiB, synthetic backup process peak180.64MiB; no OOM.
-No actual NAS/tenant tests performed by agent. User previously reported backups working,
-which is not comprehensive live restore-fidelity acceptance.
+Portable capture/export (graph.py/engine.py/portable.py):
+- portable_email_enabled defaultsFalse, additional Application Mail.Read on backup app required.
+  Existing User.Read.All also used. No tenant permissions changed automatically.
+- Exact MAPI EntryID Binary0x0FFF → documented URL-safe encoding with padding-count suffix →
+  translateExchangeIds entryId to restId → GETmessage/$value. Checks changeKey before/after
+  and mailbox identity. No subject/current-version guessing; real bridge needs tenant acceptance.
+- Captures encrypted mime_blob alongside unchanged opaque Exchange blob in NEW completed points.
+  Enabling backfills unchanged current items even on empty delta. Later unchanged reuse.
+  New/changed versions capture again. Any enabled capture failure fails mailbox run/cursor commit.
+  Old snapshots immutable; deleted historical versions lacking MIME cannot retroactively export.
+- MIME refs included in verify, pruning and NAS recovery bundles.
+- Offline whole/selected EML ZIP, coverage refuses missing MIME, one payload in memory, diskZIP64.
+  Sanitized Windows names, hierarchy/index.json/checksums; deep paths use indexed fallback.
+- Generated ZIPs are UNENCRYPTED, stored in existing /exports volume, authenticated download/delete.
+  Protected partial files, cleanup on failure/restart. No automatic expiration of completed ZIPs.
+- No native PST generation. Classic Outlook bulk path: Exchange restore, sync ALL mail, Outlook
+  File → Open & Export → Import/Export → Export to file → Outlook Data File (.pst), subfolders.
+  EML opens in compatible clients but is not a PST wizard input or all Exchange properties.
+- Optional capture adds downloads/storage. No extra service or default resource increase.
 
-## User context
-QNAP TS-453A, QTS5.2.10.3577, Container Station3.1.2.1742; modest hardware.
-User confirmed installed version0.1.0a4. Subject parser fix was in alpha5, not their image.
-They requested incremental transfers retaining versions, daily/12h scheduling, easier mailbox/
-snapshot selection with optional live comparison, speed improvements and username/password.
-User explicitly replaced QPKG with Docker. Do not revisit wrapper/import troubleshooting.
-NAS refuses SSH forwarding. Preserve existing working port binding and all volume names/paths
-when upgrading. Update only image tag; do not initialize a new config/key/repository.
-Instructions: docs/REGISTRY-INSTALL.md and docs/USAGE.md.
+## Prior alpha6 behavior preserved
 
-## Current behavior
-- Graph delta cursors already supported; now same-ID/same-changeKey entries skip payload
-  and metadata downloads when replayed. Folder410 reset rebuilds membership but reuses
-  matching prior data. Recreated mailbox gets baseline. Failed runs never advance cursors.
-- Completed snapshots remain immutable and independently restorable, referencing shared
-  encrypted blobs. New/changed versions export sequentially one item/request to bound RAM.
-- Transfer counts/bytes/duration saved in new manifests and returned in backup results/items
-  API. Old manifests have no statistics. Count directly without duplicate mailbox-wide maps.
-  Copy folder membership only; unchanged item descriptors are never mutated.
-- Presence check when reusing replayed objects; explicit Verify decrypts/hashes all content.
-  Incremental success is not a full integrity scan. Retention/default restore safeguards unchanged.
-- Schedule supports15–10080minutes, hourly/12h/daily presets. Due time uses persisted last
-  attempt completion across restarts. No previous attempt => prompt first run when enabled.
-  Failed runs wait interval unless manually retried. A manual run resets due time.
-- Optional stale_after_minutes null => interval + max(60,interval/2). Existing custom threshold
-  <= interval normalizes to automatic. Legacy180 remains if still valid. Next due/effective
-  threshold shown in Overview. Concurrent Runner start409 cannot kill scheduler.
-- Recovery first selects mailbox (including retained removed accounts), then dated point in
-  pages of200. Offline saved contents first; live comparison only on explicit button.
-  Bulk selection works for saved or compared messages, bounded1000. Restore preview/confirm
-  still creates a new folder; uncertain imports never retry automatically.
-- Subjects use numeric MAPI tag0x0037, including returned String0x37. Saved raw metadata
-  supplies blank convenience subjects in existing alpha4 points without rewriting/downloads.
-  Truly missing subjects remain No subject. User needs new image for this fix.
-- Existing read-only live comparison scans full current email metadata, no attachment exports
-  or backup cursor changes. Single in-memory result; no partial publish. ChangeKey includes
-  flags/properties; changed IDs can appear missing/new. No duplicate guessing.
-- Certificate staging/validation/activation from alpha4/5 unchanged. No indefinite certificates;
-  local long validity does not guarantee Entra acceptance. See Microsoft setup documentation.
+Incremental Graph delta and immutable recovery points; samechangeKey replay/reset reuse.
+Subjects parse numeric MAPI0x0037 including String0x37 and fallback to saved raw metadata.
+Daily/12h/custom15–10080minute schedules persist last completed attempt; automatic overdue
+interval+max60,interval/2. Mailbox-first recovery, paged points, optional live metadata compare,
+selected-message bulk restore<=1000. Certificate staged renewal. Username/password login;
+admin.token only one-time setup (legacy admin API works only before account creation).
+Monitor token remains scoped to /backup-status; /health is process liveness.
+Single service/SQLite, non-root/read-only Docker, one payload at a time.
 
-## Console authentication
-Single local administrator in /config/account.json. PBKDF2-SHA256/600k random salt,
-600k cost uses little memory; no extra dependency/server.
-Initial web setup requires original admin.token as one-time code. After account creation,
-administrator bearer tokens no longer authorize data APIs. Monitor token stays valid only
-for /backup-status. Before account setup, old admin API bearer access remains compatible.
-Sessions are random tokens (server stores hashes), HttpOnly/SameSite=strict cookies,12h TTL,
-max32 in memory. Restart/signout/password change revokes. Account revision checked each request,
-so local CLI reset revokes running service sessions. No localStorage credentials.
-Browser mutations/login/logout require X-M365-Request:1; CORS is not enabled. Validation errors
-exclude request values. Global five sign-in/setup/change attempts/min bounds KDF work.
-Cookie Secure auto on HTTPS; M365_COOKIE_SECURE=true for HTTPS reverse proxy. Direct HTTP
-remains compatible with user's LAN binding; use protected Tailscale/HTTPS for traffic privacy.
-CLI: docker exec -it m365-nas-backup m365-backup set-password USERNAME prompts twice.
-Never put passwords into args/chat/logs. Preserve account.json with config backup.
+## Instructions and user next step
 
-## Boundaries and continuity
-Global-cloud primary/shared IPF.Note email only, no online archives/PST/EML/full mailbox rollback.
-Single tenant/installation. Manifests and comparison in memory; 7.5GB live capacity not measured.
-No added services; embedded SQLite,512MiB/oneCPU default,non-root/read-only,single export item.
-Keep verified alternate backup during evaluation. Follow docs/ACCEPTANCE.md for live validation.
-User's next step: pull alpha6 and recreate current application with SAME ports/volumes, use
-old token once to create account, select daily/12h settings and inspect an older recovery point.
-No further autonomous feature work required. Wait for feedback.
+docs/REGISTRY-INSTALL.md: pull alpha7, recreate existing container with SAME ports/volumes,
+preserve encryption.key and account; footer0.1.0a7. No fresh baseline required.
+docs/MAILBOX-RECOVERY.md: whole-mailbox workflow, resume/uncertain handling, portable copies,
+EML downloads, classic Outlook PST path, API routes and limitations.
+docs/MICROSOFT-SETUP.md: existing permissions plus optional backupMail.Read; restore
+MailboxItem.Read.All permits destination count fallback when counts are omitted.
+docs/USAGE.md, RECOVERY.md, RESOURCES.md, ACCEPTANCE.md cover operation/NAS recovery/testing.
+Configuration and key backups remain essential. Use disposable mail before real DR.
+
+Scope: global-cloud primary/shared IPF.Note mail only; no online archives, contacts/calendars/
+tasks, rules, permissions, holds or tenant state. Metadata stays in memory; real7.5GB capacity
+and MIME fidelity not measured. No NAS deploy or tenant changes were performed.
 
 ## Environment
-Separate nested Git repo; do not touch parent websites. Windows PowerShell and .venv Python3.13,
-git/gh/node. No local Docker/WSL/Playwright; Linux CI handles browser/container.
-Reviewed require_escalated shell works. apply_patch fails on workspace reparse point; use
-PowerShell here-string piped to venv Python, explicit encoding="utf-8", for edits.
-build/,dist/,config/,data/ ignored. No credentials/real mail in Git.
-Push: git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin main
-Do not change global credentials. Local gh token lacks read:packages; CI token verifies package.
+
+Nested repo C:\Users\Matt Dick\Documents\ChatGPT\DiCor Websites\dicor-m365-backup.
+Remote https://github.com/dicorengineering/m365-nas-backup (owner is User, not Organization).
+Windows PowerShell, .venv Python3.13, git/gh/node. No local Docker/WSL/Playwright.
+CI provides Linux/browser/container checks. Reviewed require_escalated shell works.
+apply_patch fails on workspace reparse point; edit through literal PowerShell here-string
+piped to venv Python with explicit UTF8. Avoid shell command interpolation/secret output.
+build/dist/config/data ignored; only generated fake test data. No real mail/credentials in Git.
+Push uses repository-scoped gh helper:
+git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin main
+Do not change global credentials. Local gh lacks read:packages; CI token validates private package.

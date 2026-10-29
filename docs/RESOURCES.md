@@ -91,3 +91,20 @@ is not buffered as a whole in RAM, but snapshot metadata and ZIP/index entries s
 memory proportional to message count. Keep space for the unencrypted archive and delete it
 after download. Default 512MiB/oneCPU limits are unchanged. Large real-mailbox export/restore
 capacity remains unmeasured; alpha6 figures above describe the prior baseline workload.
+
+## Alpha 7 release measurements
+
+[Release run40829876473](https://github.com/dicorengineering/m365-nas-backup/actions/runs/40829876473),
+source49090aad43038c398b65d626c83a6b52d8b5e736, repeated the same baseline workload:
+
+| Measurement | Result |
+| --- | --- |
+| Idle service RSS | 69.63 MiB |
+| Synthetic workload process peak RSS | 180.57 MiB |
+| Whole container peak including file cache | 395,071,488 bytes (376.77 MiB) |
+| Initial / incremental / replay payload | 157 MiB / 64 KiB / 0 bytes |
+| Out-of-memory events | 0 |
+
+Whole-mailbox recovery and EML browser workflows passed with small synthetic fixtures, and a
+1,002-message recovery passed in the test suite. Those are functional checks, not resource
+measurements for a large real restore or EML export.
