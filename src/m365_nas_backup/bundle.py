@@ -8,7 +8,7 @@ import tarfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from .repository import Repository, utcnow
+from .repository import Repository, object_refs, utcnow
 
 
 def export_bundle(repo: Repository, destination: Path) -> dict:
@@ -26,7 +26,7 @@ def export_bundle(repo: Repository, destination: Path) -> dict:
         for row in rows:
             manifest = repo.manifest(row["id"])
             refs.add(row["manifest"])
-            refs.update(item["blob"] for f in manifest["folders"].values() for item in f["items"].values())
+            refs.update(object_refs(manifest))
         # Check every referenced object before publishing the second copy.
         for digest in refs:
             repo.get(digest)

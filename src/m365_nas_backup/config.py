@@ -62,6 +62,7 @@ class Settings(BaseModel):
     minimum_free_gb: float = Field(default=2, ge=0.1, le=10000)
     scheduler_enabled: bool = False
     restore_enabled: bool = False
+    portable_email_enabled: bool = False
     # Only IPF.Note (email) is part of the alpha's supported scope.
     # Archives, contacts, calendars and tasks require a later acceptance suite.
 

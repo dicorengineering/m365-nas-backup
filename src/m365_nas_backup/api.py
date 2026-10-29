@@ -22,8 +22,10 @@ from .comparison import page_comparison
 from .config import Configuration, Settings
 from .credentials import activate_certificate, certificate_status, prepare_certificate
 from .engine import Engine, error_code
-from .graph import AppToken
+from .graph import AppToken, GraphError
+from .mailbox_restore import MailboxRecovery
 from .metadata import item_subject
+from .portable import PortableExport
 from .repository import Repository
 from .schedule import next_backup_at
 
@@ -55,6 +57,20 @@ class RestoreRequest(BaseModel):
     snapshot_id: str = Field(pattern=r"^[a-f0-9]{32}$")
     destination: str = Field(min_length=1, max_length=320)
     selections: list[Selection] = Field(min_length=1, max_length=1000)
+    confirmation: str | None = None
+
+
+class MailboxRestoreRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    snapshot_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    destination: str = Field(min_length=1, max_length=320)
+    confirmation: str | None = None
+
+
+class ExportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    snapshot_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    selections: list[Selection] | None = Field(default=None, min_length=1, max_length=1000)
     confirmation: str | None = None
 
 
@@ -105,9 +121,16 @@ class Runner:
         return {"accepted": True, "operation": name}
 
 
-def create_app(config: Configuration, repo: Repository, engine: Engine | None = None) -> FastAPI:
+def create_app(
+    config: Configuration,
+    repo: Repository,
+    engine: Engine | None = None,
+    exports_directory: Path | None = None,
+) -> FastAPI:
     engine = engine or Engine(config, repo)
     runner = Runner()
+    recovery = MailboxRecovery(engine)
+    exports = PortableExport(repo, exports_directory or Path(os.getenv("M365_EXPORTS", "/exports")))
     auth = Authentication(config)
     service_lock = FileLock(str(repo.directory / ".service.lock"))
 
@@ -116,6 +139,7 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
         with service_lock.acquire(timeout=0):
             with repo.lock:
                 repo.recover_interrupted()
+                exports.cleanup_interrupted()
 
             async def scheduler():
                 while True:
@@ -247,6 +271,10 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
         response = JSONResponse({"authenticated": False})
         response.delete_cookie(COOKIE, path="/")
         return response
+
+    @app.exception_handler(GraphError)
+    async def graph_failed(request, exc):
+        return JSONResponse({"detail": str(exc)}, status_code=502)
 
     @app.exception_handler(KeyError)
     async def missing(request, exc):
@@ -464,6 +492,61 @@ def create_app(config: Configuration, repo: Repository, engine: Engine | None = 
         if not body.confirmation:
             raise HTTPException(400, "Preview and confirm the restore first")
         return runner.start("restore", lambda: engine.restore(body.model_dump()))
+
+    @app.post("/api/mailbox-restore/preview", dependencies=[Depends(admin)])
+    def mailbox_restore_preview(body: MailboxRestoreRequest):
+        return recovery.preview(body.snapshot_id, body.destination)
+
+    @app.post("/api/mailbox-restore", status_code=202, dependencies=[Depends(admin)])
+    def mailbox_restore(body: MailboxRestoreRequest):
+        if not body.confirmation:
+            raise ValueError("Preview and confirm the whole-mailbox recovery first")
+        return runner.start(
+            "mailbox-restore", lambda: recovery.start(body.snapshot_id, body.destination, body.confirmation)
+        )
+
+    @app.get("/api/mailbox-restore/jobs", dependencies=[Depends(admin)])
+    def recovery_jobs():
+        return recovery.jobs()
+
+    @app.post("/api/mailbox-restore/jobs/{job}/resume", status_code=202, dependencies=[Depends(admin)])
+    def resume_recovery(job: str):
+        return runner.start("mailbox-restore", lambda: recovery.resume(job))
+
+    @app.post("/api/mailbox-restore/jobs/{job}/abandon", dependencies=[Depends(admin)])
+    def abandon_recovery(job: str):
+        return recovery.abandon(job)
+
+    @app.post("/api/exports/preview", dependencies=[Depends(admin)])
+    def export_preview(body: ExportRequest):
+        selections = [s.model_dump() for s in body.selections] if body.selections is not None else None
+        return exports.preview(body.snapshot_id, selections)
+
+    @app.post("/api/exports", status_code=202, dependencies=[Depends(admin)])
+    def create_export(body: ExportRequest):
+        if not body.confirmation:
+            raise ValueError("Preview and confirm the unencrypted export first")
+        selections = [s.model_dump() for s in body.selections] if body.selections is not None else None
+        return runner.start(
+            "eml-export",
+            lambda: exports.create(
+                body.snapshot_id, selections, body.confirmation, config.load().minimum_free_gb
+            ),
+        )
+
+    @app.get("/api/exports", dependencies=[Depends(admin)])
+    def list_exports():
+        return exports.list()
+
+    @app.get("/api/exports/{export_id}/download", dependencies=[Depends(admin)])
+    def download_export(export_id: str):
+        return FileResponse(
+            exports.path(export_id), media_type="application/zip", filename="m365-email-" + export_id + ".zip"
+        )
+
+    @app.post("/api/exports/{export_id}/delete", dependencies=[Depends(admin)])
+    def delete_export(export_id: str):
+        return exports.delete(export_id)
 
     @app.get("/api/restores", dependencies=[Depends(admin)])
     def restores():

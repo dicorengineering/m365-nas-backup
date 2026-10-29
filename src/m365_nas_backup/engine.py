@@ -116,6 +116,21 @@ class Engine:
                 state = self._folder(
                     graph, mailbox_id, folder, old, settings, manifest["statistics"], reset=True
                 )
+            if settings.portable_email_enabled:
+                # Backfill unchanged items even when delta returns no entries.
+                # Copy descriptors so historical completed snapshots remain immutable.
+                for iid, item in state["items"].items():
+                    if item.get("mime_blob"):
+                        if not self.repo.has_object(item["mime_blob"]):
+                            raise ValueError("A saved MIME object is missing; verify the repository")
+                        continue
+                    self._space(settings)
+                    content = graph.mime(user, mailbox_id, fid, iid, item["changeKey"])
+                    state["items"][iid] = {**item, "mime_blob": self.repo.put(content)}
+                    stats = manifest["statistics"]
+                    stats["mime_items"] = stats.get("mime_items", 0) + 1
+                    stats["mime_downloaded_bytes"] = stats.get("mime_downloaded_bytes", 0) + len(content)
+                    del content
             manifest["folders"][fid] = state
         if not manifest["folders"]:
             raise ValueError("No email folders were discovered; refusing an empty baseline")

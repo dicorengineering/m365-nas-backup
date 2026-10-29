@@ -18,7 +18,7 @@ async function api(path, options = {}) {
 function lock() {
   clearTimeout(compareTimer);pendingCompare="";comparison=null;itemRequest++;signedIn=false;settings=null;selected.clear();items=[];snapshots=[];reviewAction=null;
   $("review").close();$("console").hidden=true;$("login").hidden=false;
-  $("item-rows").innerHTML="";$("operation").textContent="";$("mailbox-rows").innerHTML="";
+  $("item-rows").innerHTML="";$("operation").textContent="";$("mailbox-rows").innerHTML="";$("recovery-jobs").innerHTML="";$("exports-list").innerHTML="";
   document.querySelectorAll('input[type="password"]').forEach(input=>input.value="");
 }
 function loginMode(configured) {
@@ -37,7 +37,7 @@ async function openConsole() {
 }
 function backupSummary(result) {
   return result.mailbox+": "+(result.status==="failed"?"Failed ("+result.error+")":
-    (result.mode==="initial"?"Initial backup":"Incremental backup")+" — "+result.exported_items+" messages downloaded ("+(result.downloaded_bytes/1024**2).toFixed(1)+" MB); "+result.unchanged_items+" unchanged, "+result.new_items+" new, "+result.changed_items+" changed, "+result.deleted_items+" removed from current mailbox. Older versions remain in retained recovery points.");
+    (result.mode==="initial"?"Initial backup":"Incremental backup")+" — "+result.exported_items+" Exchange messages downloaded ("+(result.downloaded_bytes/1024**2).toFixed(1)+" MB)"+(result.mime_items?"; "+result.mime_items+" portable copies ("+(result.mime_downloaded_bytes/1024**2).toFixed(1)+" MB)":"")+"; "+result.unchanged_items+" unchanged, "+result.new_items+" new, "+result.changed_items+" changed, "+result.deleted_items+" removed from current mailbox. Older versions remain in retained recovery points.");
 }
 function date(value) {return value ? new Date(value).toLocaleString() : "Never";}
 async function refresh() {
@@ -67,22 +67,27 @@ async function refresh() {
   $("operation").textContent = status.operation ? JSON.stringify(status.operation,null,2) : "No operation has run in this session.";
   $("operation-summary").textContent=status.operation?.operation==="backup"&&Array.isArray(status.operation.result)?status.operation.result.map(backupSummary).join("\n"):
     status.operation?status.operation.operation+": "+status.operation.state+(status.operation.error?" ("+status.operation.error+")":""):"No operation has run in this session.";
+  if(!$("recovery").hidden)await loadRecoveryJobs();
   $("mailbox-rows").innerHTML = status.mailboxes.length ? status.mailboxes.map(m=>"<tr><td>"+escapeHtml(m.label)+"</td><td class='state "+(m.healthy?"good":"")+"'>"+escapeHtml(m.running?"Running":m.healthy?"Current":m.issue)+"</td><td>"+escapeHtml(date(m.last_completed))+"</td><td>"+m.item_count.toLocaleString()+"</td></tr>").join("") : "<tr><td colspan='4'>No mailboxes configured yet. Open Settings to add them.</td></tr>";
 }
 async function loadSettings() {
   settings=await api("/api/settings"); certificates=await api("/api/certificates"); renderCertificates(); const form=$("settings-form");
   for(const name of ["tenant_id","client_id","restore_client_id","interval_minutes","stale_after_minutes","minimum_free_gb"]) form.elements[name].value=settings[name]??"";
   $("schedule-preset").value=[60,720,1440].includes(settings.interval_minutes)?String(settings.interval_minutes):"custom";
-  for(const name of ["scheduler_enabled","restore_enabled"]) form.elements[name].checked=settings[name];
+  for(const name of ["scheduler_enabled","restore_enabled","portable_email_enabled"]) form.elements[name].checked=settings[name];
   $("mailboxes").value=settings.mailboxes.filter(m=>m.enabled).map(m=>m.user).join("\n");
   $("retention-mode").value=settings.retention.days===null?"forever":"days";
   $("retention-days").value=settings.retention.days??40;
   $("minimum-snapshots").value=settings.retention.minimum_snapshots;
   $("automatic-pruning").checked=settings.retention.automatic_pruning;
   $("retention-days").disabled=settings.retention.days===null;
+  const replacement=$("replacement-mailbox").value;
+  $("replacement-mailbox").innerHTML="<option value=''>Choose a replacement</option>"+settings.mailboxes.map(m=>"<option value='"+escapeHtml(m.user)+"'>"+escapeHtml(m.label||m.user)+"</option>").join("");
+  $("replacement-mailbox").value=replacement;
   $("destination").innerHTML=settings.mailboxes.map(m=>"<option value='"+escapeHtml(m.user)+"'>"+escapeHtml(m.label||m.user)+"</option>").join("");
 }
 async function loadMailboxes() {
+  await loadRecoveryJobs();
   const previous=$("source-mailbox").value, rows=await api("/api/mailboxes");
   $("source-mailbox").innerHTML="<option value=''>Choose a mailbox</option>"+rows.map(m=>"<option value='"+escapeHtml(m.mailbox)+"'>"+escapeHtml(m.label+" · "+m.points+" recovery points")+"</option>").join("");
   $("source-mailbox").value=previous;
@@ -175,7 +180,7 @@ bind("settings-form","submit",async e=>{
   for(const name of ["tenant_id","client_id","restore_client_id"])next[name]=f.elements[name].value.trim();
   for(const name of ["interval_minutes","minimum_free_gb"])next[name]=Number(f.elements[name].value);
   next.stale_after_minutes=f.elements.stale_after_minutes.value?Number(f.elements.stale_after_minutes.value):null;
-  for(const name of ["scheduler_enabled","restore_enabled"])next[name]=f.elements[name].checked;
+  for(const name of ["scheduler_enabled","restore_enabled","portable_email_enabled"])next[name]=f.elements[name].checked;
   const entered=$("mailboxes").value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   next.mailboxes=entered.map(user=>({...settings.mailboxes.find(m=>m.user.toLowerCase()===user.toLowerCase()),user,enabled:true}));
   next.mailboxes.push(...settings.mailboxes.filter(m=>!m.enabled&&!entered.some(user=>user.toLowerCase()===m.user.toLowerCase())));
@@ -224,3 +229,49 @@ async function initialize(){
   if(state.authenticated)await openConsole();
 }
 initialize().catch(err=>message(err.message));
+
+async function loadRecoveryJobs() {
+  const [jobs,exports]=await Promise.all([api("/api/mailbox-restore/jobs"),api("/api/exports")]);
+  $("recovery-jobs").innerHTML=jobs.length?jobs.map(j=>{
+    const result=typeof j.result==="object"&&j.result?j.result:{};
+    return "<p><strong>"+escapeHtml(j.destination)+"</strong> · "+escapeHtml(j.status)+" · "+(result.imported||0)+" / "+(result.total??"?")+" messages · "+escapeHtml(date(j.created))+
+      (result.error?" · "+escapeHtml(result.error):"")+
+      (j.status==="failed"?" <button class='secondary' data-resume='"+j.id+"'>Review resume</button>":"")+
+      (["failed","uncertain"].includes(j.status)?" <button class='secondary' data-abandon='"+j.id+"'>Abandon job</button>":"")+
+      (j.status==="uncertain"?" <span>Import outcome unknown. Inspect the destination; do not repeat the restore into it.</span>":"")+"</p>";
+  }).join(""):"No whole-mailbox recovery jobs yet.";
+  $("exports-list").innerHTML=exports.length?exports.map(e=>"<p><a href='/api/exports/"+e.id+"/download'>Download EML ZIP · "+escapeHtml(new Date(e.created*1000).toLocaleString())+"</a> · "+(e.bytes/1024**2).toFixed(1)+" MB <button class='secondary' data-delete-export='"+e.id+"'>Delete export</button></p>").join(""):"No completed exports.";
+}
+bind("refresh-recovery","click",loadRecoveryJobs);
+bind("preview-mailbox-restore","click",async()=>{
+  const snapshot_id=$("snapshot").value,destination=$("replacement-mailbox").value;
+  if(!snapshot_id||!destination)throw Error("Choose a recovery point and replacement mailbox.");
+  message("Checking the replacement mailbox and folder plan…");
+  const plan=await api("/api/mailbox-restore/preview",{method:"POST",body:JSON.stringify({snapshot_id,destination})});
+  review("Rebuild "+plan.count+" messages in "+plan.destination+"?",
+    "Every backed-up email message will be imported into "+plan.folders.length+" mapped or recreated folders. This is the entire recovery point, not the filtered selection. Keep the replacement mailbox unused until completion."+
+    (plan.top_level_fallbacks?" "+plan.top_level_fallbacks+" folders have parents outside the saved email tree and will be placed at the mailbox root.":""),
+    async()=>{await api("/api/mailbox-restore",{method:"POST",body:JSON.stringify({snapshot_id:plan.snapshot_id,destination:plan.destination,confirmation:plan.confirmation})});message("Whole-mailbox recovery started. Progress appears in Recovery and Overview.");await loadRecoveryJobs();});
+});
+async function exportEmail(whole) {
+  const snapshot_id=$("snapshot").value;
+  if(!snapshot_id)throw Error("Choose a recovery point.");
+  if(!whole&&!selected.size)throw Error("Select messages first.");
+  const request={snapshot_id,selections:whole?null:[...selected.values()]};
+  const plan=await api("/api/exports/preview",{method:"POST",body:JSON.stringify(request)});
+  if(plan.missing_mime)throw Error(plan.missing_mime+" of "+plan.count+" messages have no saved MIME. Enable portable copies and complete a new backup. For older versions, restore to Exchange and export through Outlook.");
+  review("Export "+plan.count+" messages as EML?",
+    "This creates an unencrypted ZIP in /exports. It contains saved message content and attachments, and is not a PST file. Protect the download and delete it from the NAS when finished.",
+    async()=>{await api("/api/exports",{method:"POST",body:JSON.stringify({...request,confirmation:plan.confirmation})});message("Export started. Refresh Downloads when it finishes.");});
+}
+bind("export-mailbox","click",()=>exportEmail(true));
+bind("export-selected","click",()=>exportEmail(false));
+bind("recovery-jobs","click",async e=>{
+  const resume=e.target.dataset.resume,abandon=e.target.dataset.abandon;
+  if(resume)review("Resume this recovery?","Previously confirmed imports will be skipped. Resume requires the same mailbox, unchanged destination folders and expected message counts.",async()=>{await api("/api/mailbox-restore/jobs/"+resume+"/resume",{method:"POST",body:"{}"});message("Resume started.");await loadRecoveryJobs();});
+  if(abandon)review("Abandon this recovery job?","This releases its recovery point for normal retention cleanup and permanently disables resume. Mail already imported stays in Exchange.",async()=>{await api("/api/mailbox-restore/jobs/"+abandon+"/abandon",{method:"POST",body:"{}"});await loadRecoveryJobs();});
+});
+bind("exports-list","click",async e=>{
+  const id=e.target.dataset.deleteExport;
+  if(id)review("Delete this unencrypted export?","The ZIP will be removed from /exports. Its source backup remains available.",async()=>{await api("/api/exports/"+id+"/delete",{method:"POST",body:"{}"});await loadRecoveryJobs();});
+});

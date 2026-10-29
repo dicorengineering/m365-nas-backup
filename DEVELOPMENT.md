@@ -1,3 +1,36 @@
+# Restart checkpoint — alpha 7 recovery work in progress
+
+Updated 2026-10-29. User requested whole-mailbox disaster recovery directly into a replacement
+mailbox, plus an export usable with classic Outlook for Windows. Continue this authorized work.
+Keep repository/package PRIVATE. No NAS deployment, tenant changes or real-mail restore.
+Continuation automation remains PAUSED. No subagents.
+
+Implemented, not released:
+- Whole-mailbox preview/confirm, standard folder identity mapping and custom hierarchy.
+  Empty, separately configured replacement identity required; source can be gone.
+  Durable per-write journal, explicit safe resume, uncertain writes blocked after restart.
+  Source point pinned against retention until success or explicit abandonment.
+- Optional portable_email_enabled setting: save Graph MIME alongside opaque Exchange data,
+  map exact MAPI EntryID through translateExchangeIds, check version before/after capture.
+  Backfill unchanged items in a NEW snapshot; no changes to old points. Extra Mail.Read needed.
+- Offline full/selected EML ZIP export with authenticated downloads/deletion, coverage checks,
+  protected partial files, startup cleanup. MIME refs included in verify, pruning and bundles.
+- Web controls for all above. No native PST converter: classic Outlook PST export follows
+  Exchange restoration and full sync. EML remains portable content/attachments, not Exchange fidelity.
+
+Validation so far: original83 tests pass;16 new whole-mailbox tests pass (including1002 imports,
+resume/no duplicates, uncertain restart and retention pin);19 MIME/export tests pass.
+Ruff fixes applied. Need finish browser coverage, full suite, docs, alpha7 version bump and CI.
+Do not push a running release build with alpha6 tag: it is already published. Work checkpoints
+use [skip ci]; final release code must bump every package/image reference to alpha7 first.
+
+Next: extend scripts/browser_smoke.py, document docs/RECOVERY.md and updated setup/usage,
+test all, commit/push alpha7, watch CI including Docker/resources/private pull verification,
+inspect browser artifacts. Finish with tested digest/instructions and updated checkpoint.
+No real tenant/QNAP/Outlook acceptance by agent.
+
+Prior delivered checkpoint follows for environment and alpha6 details.
+
 # Restart checkpoint — alpha 6 delivered
 
 Updated 2026-10-28. Requested work complete; wait for user feedback before more development.

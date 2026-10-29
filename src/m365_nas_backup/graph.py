@@ -72,7 +72,7 @@ class Graph:
     def close(self):
         self.client.close()
 
-    def request(self, method: str, path: str, body=None, *, safe=True, import_upload=False) -> dict:
+    def request(self, method: str, path: str, body=None, *, safe=True, import_upload=False, raw=False):
         url = path if path.startswith("https://") else BASE + path
         parts = urlsplit(url)
         expected_host = "outlook.office365.com" if import_upload else "graph.microsoft.com"
@@ -90,7 +90,7 @@ class Graph:
                 raise ValueError("Invalid import session URL")
         elif not parts.path.startswith("/v1.0/"):
             raise ValueError("Only Microsoft Graph v1.0 is enabled")
-        headers = {"Accept": "application/json"}
+        headers = {"Accept": "message/rfc822" if raw else "application/json"}
         if not import_upload:
             headers["Authorization"] = "Bearer " + self.token()
         attempts = 5 if safe else 1
@@ -124,6 +124,10 @@ class Graph:
                     code = "request_failed"
                 kind = UncertainWrite if not safe and response.status_code >= 500 else GraphError
                 raise kind(response.status_code, code)
+            if raw:
+                if not response.content:
+                    raise GraphError(response.status_code, "empty_mime_response")
+                return response.content
             try:
                 data = response.json()
                 if not isinstance(data, dict):
@@ -213,6 +217,44 @@ class Graph:
         return self.request(
             "GET", path + "?$expand=singleValueExtendedProperties($filter=id%20eq%20'String%200x0037')"
         )
+
+    def mime(self, user: str, mailbox_id: str, folder_id: str, item_id: str, change_key: str) -> bytes:
+        # Admin Exchange IDs are NOT assumed to be ordinary Graph message IDs.
+        # Translate the exact MAPI EntryID; never match by subject or Message-ID.
+        path = self.root(mailbox_id) + f"/folders/{segment(folder_id)}/items/{segment(item_id)}"
+        description = self.request(
+            "GET", path + "?$expand=singleValueExtendedProperties($filter=id%20eq%20'Binary%200x0FFF')"
+        )
+        if description.get("changeKey") != change_key:
+            raise ValueError("Message changed before MIME capture; retry the backup")
+        entry = None
+        for prop in description.get("singleValueExtendedProperties", []):
+            match = re.fullmatch(r"Binary 0x([0-9a-fA-F]{1,4})", prop.get("id", ""), re.IGNORECASE)
+            if match and int(match[1], 16) == 0x0FFF:
+                entry = prop.get("value")
+        if not entry:
+            raise ValueError("MIME capture requires the message MAPI EntryID")
+        binary = base64.b64decode(entry, validate=True)
+        if not binary:
+            raise ValueError("Empty MAPI EntryID")
+        encoded = base64.urlsafe_b64encode(binary).decode()
+        entry_id = encoded.rstrip("=") + str(len(encoded) - len(encoded.rstrip("=")))
+        results = self.request(
+            "POST",
+            f"/users/{segment(user)}/translateExchangeIds",
+            {"inputIds": [entry_id], "sourceIdType": "entryId", "targetIdType": "restId"},
+        ).get("value", [])
+        if len(results) != 1 or results[0].get("sourceId") != entry_id or not results[0].get("targetId"):
+            raise ValueError("MIME message identity translation failed")
+        content = self.request(
+            "GET", f"/users/{segment(user)}/messages/{segment(results[0]['targetId'])}/$value", raw=True
+        )
+        if self.request("GET", path).get("changeKey") != change_key:
+            raise ValueError("Message changed during MIME capture; retry the backup")
+        # A mailbox recreated under the same address must not supply another identity.
+        if self.mailbox_id(user) != mailbox_id:
+            raise ValueError("Mailbox identity changed during MIME capture")
+        return content
 
     def create_folder(self, mailbox_id: str, name: str, parent: str | None = None) -> str:
         path = self.root(mailbox_id) + "/folders"

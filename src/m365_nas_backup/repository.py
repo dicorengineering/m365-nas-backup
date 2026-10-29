@@ -19,6 +19,14 @@ from .config import Retention, atomic_write
 HEX = re.compile(r"^[0-9a-f]{64}$")
 
 
+def object_refs(manifest):
+    for folder in manifest["folders"].values():
+        for item in folder["items"].values():
+            yield item["blob"]
+            if item.get("mime_blob"):
+                yield item["mime_blob"]
+
+
 def utcnow() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -44,6 +52,13 @@ class Repository:
                 CREATE TABLE IF NOT EXISTS attempts (
                     id TEXT PRIMARY KEY, mailbox TEXT NOT NULL, started TEXT NOT NULL,
                     completed TEXT, status TEXT NOT NULL, error TEXT
+                );
+                CREATE TABLE IF NOT EXISTS recovery_jobs (
+                    id TEXT PRIMARY KEY, plan TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS recovery_steps (
+                    job TEXT NOT NULL, kind TEXT NOT NULL, source TEXT NOT NULL,
+                    status TEXT NOT NULL, target TEXT, PRIMARY KEY(job,kind,source)
                 );
                 CREATE TABLE IF NOT EXISTS restores (
                     id TEXT PRIMARY KEY, created TEXT NOT NULL, snapshot TEXT NOT NULL,
@@ -168,16 +183,29 @@ class Repository:
     def retention_plan(self, policy: Retention, now: datetime | None = None) -> dict:
         now = now or datetime.now(UTC)
         cutoff = now - timedelta(days=policy.days) if policy.days is not None else None
+        with self.db() as db:
+            pinned = {
+                r["snapshot"]
+                for r in db.execute(
+                    "SELECT r.snapshot FROM restores r JOIN recovery_jobs j ON j.id=r.id "
+                    "WHERE r.status IN ('running','failed','uncertain')"
+                )
+            }
         ranks: dict[str, int] = {}
         remove = []
         for snapshot in self.snapshots():
             mailbox = snapshot["mailbox"]
             ranks[mailbox] = ranks.get(mailbox, 0) + 1
-            if cutoff and ranks[mailbox] > policy.minimum_snapshots:
+            if cutoff and ranks[mailbox] > policy.minimum_snapshots and snapshot["id"] not in pinned:
                 if datetime.fromisoformat(snapshot["completed"]) < cutoff:
                     remove.append(snapshot["id"])
         signature = hashlib.sha256(json.dumps(sorted(remove)).encode()).hexdigest()
-        return {"snapshot_ids": remove, "count": len(remove), "confirmation": signature}
+        return {
+            "snapshot_ids": remove,
+            "count": len(remove),
+            "confirmation": signature,
+            "pinned": sorted(pinned),
+        }
 
     def prune(self, policy: Retention, confirmation: str | None = None) -> dict:
         with self.lock:
@@ -192,9 +220,7 @@ class Repository:
                     continue
                 manifest = self.manifest(row["id"])
                 live.add(row["manifest"])
-                for folder in manifest["folders"].values():
-                    for item in folder["items"].values():
-                        live.add(item["blob"])
+                live.update(object_refs(manifest))
             with self.db() as db:
                 db.executemany("DELETE FROM snapshots WHERE id=?", [(sid,) for sid in deleted])
             removed_objects = 0
@@ -207,7 +233,7 @@ class Repository:
     def verify(self, snapshot_id: str) -> dict:
         with self.lock:
             manifest = self.manifest(snapshot_id)
-            refs = {item["blob"] for f in manifest["folders"].values() for item in f["items"].values()}
+            refs = set(object_refs(manifest))
             for digest in refs:
                 self.get(digest)
             return {"snapshot": snapshot_id, "verified_objects": len(refs)}
