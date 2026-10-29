@@ -146,10 +146,26 @@ received the import even if the response was lost. The app never automatically r
 uncertain import. Failed restores can leave partial recovery folders; check results and
 `GET /api/restores` for completed item IDs.
 
+## Whole-mailbox disaster recovery and Outlook export
+
+Alpha 7 adds **Whole-mailbox recovery & export** above the selected-message list.
+It rebuilds all saved email folders/messages directly in an empty replacement mailbox,
+with durable progress and an explicit resume for confirmed failures. No per-message selection
+is needed and the 1,000-message limit does not apply. Uncertain results cannot resume.
+
+Optional portable copies enable offline whole/selected EML ZIP downloads. Grant the backup
+app Mail.Read before enabling the setting, then complete a new backup. Old points are not
+rewritten. Classic Outlook PST export uses an Exchange restore followed by Outlook export;
+the NAS does not directly generate PST. Read the [complete instructions](MAILBOX-RECOVERY.md).
+
+Running/failed/uncertain whole-mailbox recovery jobs pin their source point against retention.
+Success or an explicit **Abandon job** releases it. Generated unencrypted ZIPs in /exports
+must be deleted separately after download; normal backup retention does not remove them.
+
 ## Verify a point
 
 Choose it in Recovery and click **Verify this backup**. The result checks decryption and content
-hashes of every referenced object. This detects local corruption; it does not replace a live
+hashes of every referenced object, including any saved MIME copies. This detects local corruption; it does not replace a live
 restore. Verify periodically and after moving/restoring storage.
 
 ## Uptime Kuma

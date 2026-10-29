@@ -237,3 +237,85 @@ def test_unknown_counts_are_scanned(recovery):
     graph.delta = lambda *_: iter([{"value": [{"id": "existing"}]}])
     with pytest.raises(ValueError, match="must be empty"):
         service.preview(sid, "replacement@example.com")
+
+
+def test_structural_non_email_root_and_unavailable_source(recovery):
+    _, repo, graph, service, sid, _ = recovery
+    manifest = repo.manifest(sid)
+    manifest["excluded_folders"] = [{"id": "old-root", "name": "Top of store", "type": None}]
+    sid = repo.commit(repo.begin("test@example.com"), manifest)
+
+    def only_replacement(user):
+        assert user == "replacement@example.com"
+        return "MBX:replacement@example.com"
+
+    graph.mailbox_id = only_replacement
+    plan = service.preview(sid, "replacement@example.com")
+    assert start(service, plan)["status"] == "success"
+
+
+def test_empty_custom_root_folder_is_reused_and_resume_keeps_hierarchy(recovery):
+    _, repo, graph, service, sid, target = recovery
+    manifest = repo.manifest(sid)
+    manifest["folders"]["project"]["metadata"]["parentFolderId"] = "old-root"
+    sid = repo.commit(repo.begin("test@example.com"), manifest)
+    target.append(
+        {
+            "id": "existing-projects",
+            "displayName": "Projects",
+            "parentFolderId": "new-root",
+            "type": "IPF.Note",
+            "totalItemCount": 0,
+        }
+    )
+    original_import = graph.import_item
+
+    def reject_second(*args):
+        if graph.imported:
+            raise GraphError(403, "rejected")
+        return original_import(*args)
+
+    graph.import_item = reject_second
+    plan = service.preview(sid, "replacement@example.com")
+    result = start(service, plan)
+    assert result["status"] == "failed"
+    assert graph.created == [("MBX:replacement@example.com", "Clients", "existing-projects")]
+    graph.import_item = original_import
+    assert service.resume(result["id"])["status"] == "success"
+
+
+def test_restart_preserves_confirmed_progress(recovery):
+    _, repo, graph, service, _, _ = recovery
+    original_import = graph.import_item
+
+    def crash_after_one(*args):
+        if graph.imported:
+            raise KeyboardInterrupt()
+        return original_import(*args)
+
+    graph.import_item = crash_after_one
+    with pytest.raises(KeyboardInterrupt):
+        start(service, preview(recovery))
+    repo.recover_interrupted()
+    job = service.jobs()[0]
+    assert job["status"] == "uncertain"
+    assert job["result"]["imported"] == 1
+    assert job["result"]["total"] == 2
+
+
+@pytest.mark.parametrize("problem", ["cycle", "unsupported", "ambiguous"])
+def test_invalid_source_hierarchy_is_rejected_before_writes(recovery, problem):
+    _, repo, graph, service, sid, _ = recovery
+    manifest = repo.manifest(sid)
+    if problem == "cycle":
+        manifest["folders"]["project"]["metadata"]["parentFolderId"] = "child"
+    elif problem == "unsupported":
+        manifest["excluded_folders"] = [{"id": "calendar", "name": "Calendar", "type": "IPF.Appointment"}]
+        manifest["folders"]["project"]["metadata"]["parentFolderId"] = "calendar"
+    else:
+        manifest["folders"]["child"]["metadata"].update(displayName="projects", parentFolderId="inbox")
+    sid = repo.commit(repo.begin("test@example.com"), manifest)
+    with pytest.raises(ValueError):
+        service.preview(sid, "replacement@example.com")
+    assert not graph.created
+    assert not graph.imported

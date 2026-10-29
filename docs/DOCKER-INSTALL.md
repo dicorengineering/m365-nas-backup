@@ -8,14 +8,14 @@ QNAP users can follow the GUI procedure in [QNAP-INSTALL.md](QNAP-INSTALL.md).
 
 ## Install
 
-Download and unzip **M365Backup-0.1.0-alpha.6-docker-amd64** from the Artifacts section
+Download and unzip **M365Backup-0.1.0-alpha.7-docker-amd64** from the Artifacts section
 of a successful private **Test and build Docker alpha** Actions run.
 In that extracted directory:
 
 ```sh
 sha256sum -c SHA256SUMS
-docker load --input m365-nas-backup-0.1.0-alpha.6-amd64.tar.gz
-docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6 --format '{{.Architecture}} {{.Os}}'
+docker load --input m365-nas-backup-0.1.0-alpha.7-amd64.tar.gz
+docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7 --format '{{.Architecture}} {{.Os}}'
 docker compose up -d --pull never
 docker compose exec backup cat /config/admin.token
 ```
@@ -87,7 +87,7 @@ repository or credentials directory between running services.
 On a build machine, check out the intended revision and run:
 
 ```sh
-docker build -t ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6 .
+docker build -t ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7 .
 docker compose up -d --pull never
 ```
 

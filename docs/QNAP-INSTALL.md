@@ -1,4 +1,4 @@
-# QNAP installation — Docker alpha 6
+# QNAP installation — Docker alpha 7
 
 **Preferred: [pull from the private registry](REGISTRY-INSTALL.md).** This avoids the archive importer.
 The instructions below cover optional offline installation.
@@ -11,13 +11,13 @@ The QPKG wrapper has been retired. Use this guide instead of the alpha 1 App Cen
 On a computer signed into GitHub with repository access:
 
 1. Open this repository's **Actions → Test and build Docker alpha**.
-2. Choose a successful run and download **M365Backup-0.1.0-alpha.6-docker-amd64**.
+2. Choose a successful run and download **M365Backup-0.1.0-alpha.7-docker-amd64**.
 3. Unzip the download. Keep the image archive, `compose.yaml`, instructions, resource report
    and `SOURCE-COMMIT.txt` together.
 4. Check the image's SHA-256 against the matching line in `SHA256SUMS`. On Windows:
 
    ```powershell
-   Get-FileHash .\m365-nas-backup-0.1.0-alpha.6-amd64.tar.gz -Algorithm SHA256
+   Get-FileHash .\m365-nas-backup-0.1.0-alpha.7-amd64.tar.gz -Algorithm SHA256
    ```
 
    On Linux, `sha256sum -c SHA256SUMS` checks all packaged files.
@@ -54,12 +54,12 @@ the new application. A name conflict is expected if one remains.
 ## 3. Import the image
 
 In **Container Station → Images → Import**, choose the downloaded
-`m365-nas-backup-0.1.0-alpha.6-amd64.tar.gz`. Wait for the import to finish.
+`m365-nas-backup-0.1.0-alpha.7-amd64.tar.gz`. Wait for the import to finish.
 Do not select the optional **Import and Create** shortcut; the next step supplies the storage
-and resource settings. Confirm `ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6` appears in Images.
+and resource settings. Confirm `ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7` appears in Images.
 
 Import through **Images**, not the container-import screen. If using SSH instead:
-`docker load --input /PATH/TO/m365-nas-backup-0.1.0-alpha.6-amd64.tar.gz`.
+`docker load --input /PATH/TO/m365-nas-backup-0.1.0-alpha.7-amd64.tar.gz`.
 
 ### Import says successful but Images is empty
 
@@ -81,12 +81,12 @@ Compose application, with forced pulling disabled. If no tag is listed, copy the
 to a known NAS folder and load it directly (replace the path):
 
 ```sh
-docker load --input /ACTUAL/NAS/PATH/m365-nas-backup-0.1.0-alpha.6-amd64.tar.gz
-docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6 --format '{{.Id}} {{.Architecture}} {{.Os}}'
+docker load --input /ACTUAL/NAS/PATH/m365-nas-backup-0.1.0-alpha.7-amd64.tar.gz
+docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7 --format '{{.Id}} {{.Architecture}} {{.Os}}'
 ```
 
 Use `load`, not `import`: an image archive includes its startup configuration. Success should
-report `Loaded image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6`; inspection should show an ID, `amd64 linux`.
+report `Loaded image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7`; inspection should show an ID, `amd64 linux`.
 If this fails, capture that exact error plus the Container Station version. Do not reinstall
 Container Station, prune volumes or delete other containers to troubleshoot this image.
 

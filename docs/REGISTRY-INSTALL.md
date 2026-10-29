@@ -25,8 +25,8 @@ archive importer. The GitHub repository and container package remain private.
 ## Pull and confirm
 
 ```sh
-docker pull ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6
-docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6 --format '{{.Id}} {{.Architecture}} {{.Os}}'
+docker pull ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7
+docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7 --format '{{.Id}} {{.Architecture}} {{.Os}}'
 ```
 
 The inspection should show an image ID followed by `amd64 linux`.
@@ -38,7 +38,7 @@ Open the repository's [compose.yaml](../compose.yaml), copy its full contents, t
 **Container Station → Applications → Create** and paste them. The image line must be:
 
 ```yaml
-image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6
+image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7
 ```
 
 Since the image is already pulled, leave forced pulling disabled. A login in your SSH account
@@ -61,20 +61,22 @@ If it says manifest unknown, check the exact tag. The image is linux/amd64 only.
 
 Reference: [GitHub Container Registry authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 
-## Upgrade an existing Container Station application to alpha 6
+## Upgrade an existing Container Station application to alpha 7
 
 Wait for any active backup/restore to finish. Preserve a protected configuration copy and a
 verified recovery bundle. In the NAS terminal run:
 
 ```sh
-docker pull ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.6
+docker pull ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7
 ```
 
 In Container Station, open the existing application and use **Recreate**. Change only its
 image line to the tag above. Keep your working port binding and all three volume names/paths;
 do not replace the complete YAML with defaults. Do not remove volumes. After it starts, reload
-the browser and confirm version **0.1.0a6** in the footer, then inspect an existing recovery point.
-No snapshot migration, certificate replacement or fresh baseline is required by this upgrade.
+the browser and confirm version **0.1.0a7** in the footer, then inspect an existing recovery point.
+Startup adds the recovery journal tables without rewriting old snapshots. No certificate
+replacement or fresh Exchange baseline is required. Keep your normal username/password if
+already using alpha 6; the setup-code flow below applies only when no account exists.
 
 On first sign-in, use the existing administrator token as the **One-time setup code**, then
 choose a username and a password of at least 12 characters. After this, the token no longer
@@ -91,3 +93,15 @@ including subjects from older alpha4 metadata. Click **Compare with current mail
 you want a live difference scan. Search and select a page or all matching messages (up to 1,000),
 then review the restore. Incremental backups reuse unchanged message data and keep older versions.
 No extra service or resource increase is required. See [usage](USAGE.md) for details.
+
+## New recovery controls in alpha 7
+
+Use **Recovery → Whole-mailbox recovery & export** for the replacement-mailbox workflow.
+The destination must be explicitly configured, empty and have a different mailbox identity.
+Read [the recovery and Outlook guide](MAILBOX-RECOVERY.md) before confirming real mail imports.
+
+Portable EML copies default off. Enabling them requires adding **Application Mail.Read** to
+the backup app, granting consent, enabling the setting and completing a new backup. It adds
+storage/download work; existing versions without MIME still restore through Exchange.
+All three persistent volumes are used, including /exports for generated unencrypted ZIPs.
+The upgrade itself makes no tenant permission changes.

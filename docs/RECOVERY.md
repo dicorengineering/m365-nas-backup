@@ -97,3 +97,9 @@ The new certificates/tokens require corresponding setup. Do not alter encrypted 
 A second NAS normally holds recovery copies; do not have two services mutate the same shared
 repository. Each running installation needs its own local writable data directory.
 Keep the app version and recovery procedure with your offline materials.
+
+## Recover all email into a replacement mailbox
+
+For mailbox disaster recovery, use the [whole-mailbox and Outlook guide](MAILBOX-RECOVERY.md).
+It covers direct folder-tree rebuild, safe resume, portable EML copies and classic Outlook PST
+export. The encrypted repository bundle described above is not an Outlook file.

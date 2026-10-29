@@ -53,3 +53,20 @@ Keep your existing backup until acceptance succeeds.
 - Verify old/new points and perform a real restore from the recovered copy.
 
 No physical NAS or live Microsoft acceptance is implied by passing automated CI.
+
+## Whole-mailbox and portable export acceptance (alpha 7)
+
+- Use an isolated empty replacement mailbox. Include localized standard folders, nested
+  custom/empty folders, sent/deleted messages and attachments in the source test data.
+- Preview the entire saved point, restore, and compare all destination counts and hierarchy.
+  Confirm the original mailbox can be unavailable during recovery.
+- With disposable fixtures, exercise a known rejected import and explicit resume; confirmed
+  imports must not repeat. A lost write response/restart must block uncertain resume.
+- Grant the optional backup Mail.Read permission, enable portable copies and complete a new
+  point. Export it, disconnect from Microsoft, extract the ZIP and open representative EMLs.
+- Compare attachments byte-for-byte and check subject/body/header dates. Test draft/protected
+  or unusual message types actually used by your organization; MIME support can differ.
+- Confirm an older point without MIME is refused for EML export instead of silently omitting mail.
+- In classic Outlook, sync all recovered mail, export a PST with subfolders, reopen it and check
+  counts/content. No live Outlook acceptance is implied by automated ZIP tests.
+- Delete the generated unencrypted ZIP and verify the original backup still verifies.

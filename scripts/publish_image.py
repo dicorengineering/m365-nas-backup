@@ -13,7 +13,7 @@ def main():
     repository = os.environ["GITHUB_REPOSITORY"]
     owner, package = repository.lower().split("/")
     token = os.environ["GH_TOKEN"]
-    image = "ghcr.io/" + repository.lower() + ":0.1.0-alpha.6"
+    image = "ghcr.io/" + repository.lower() + ":0.1.0-alpha.7"
     package_path = f"/users/{owner}/packages/container/{package}"
 
     def api(path, missing=False):

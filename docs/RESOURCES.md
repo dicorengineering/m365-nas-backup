@@ -78,3 +78,16 @@ of a backup or restore. A CPU cap of `0.5` can reduce load further at the cost o
 adjust the overdue threshold accordingly. Do not add worker replicas.
 
 Definitions: [Compose service resource settings](https://docs.docker.com/reference/compose-file/services/).
+
+## Alpha 7 optional recovery/export costs
+
+Whole-mailbox imports use one message at a time and SQLite journal rows; there is no new service.
+Portable MIME copies default off. Enabling them adds an initial pass over current mail and an
+additional encrypted representation of messages, followed by incremental capture. It may
+approximately double message storage, depending on compression and Exchange/MIME sizes.
+
+EML ZIPs are written to the persistent /exports volume one payload at a time. The archive
+is not buffered as a whole in RAM, but snapshot metadata and ZIP/index entries still consume
+memory proportional to message count. Keep space for the unencrypted archive and delete it
+after download. Default 512MiB/oneCPU limits are unchanged. Large real-mailbox export/restore
+capacity remains unmeasured; alpha6 figures above describe the prior baseline workload.

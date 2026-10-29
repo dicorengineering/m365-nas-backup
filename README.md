@@ -12,11 +12,11 @@ to one Microsoft 365 tenant; no organization-specific configuration is built in.
 
 **[Install with docker pull](docs/REGISTRY-INSTALL.md)** — preferred for QNAP.
 
-Docker alpha 6 adds username/password sign-in, daily/12-hour schedules, and mailbox-first
-recovery with an optional live comparison. Incremental transfers skip replayed unchanged
-messages and report downloaded counts/bytes. It includes the alpha 5 subject-format fix.
-[Upgrade instructions](docs/REGISTRY-INSTALL.md#upgrade-an-existing-container-station-application-to-alpha-6).
-[Alpha 6 passed all release checks](https://github.com/dicorengineering/m365-nas-backup/actions/runs/40781502912), including browser, container and private registry pull verification.
+Docker alpha 7 adds whole-mailbox recovery directly into an empty replacement mailbox,
+durable restore progress with safe manual resume, and optional saved MIME copies for offline
+EML ZIP exports. It retains password sign-in, daily/12-hour scheduling and incremental backups.
+[Upgrade instructions](docs/REGISTRY-INSTALL.md#upgrade-an-existing-container-station-application-to-alpha-7)
+and [whole-mailbox/Outlook instructions](docs/MAILBOX-RECOVERY.md).
 
 - **QNAP users:** [Installation and first access](docs/QNAP-INSTALL.md)
 - [Microsoft 365 application setup](docs/MICROSOFT-SETUP.md)
@@ -36,6 +36,8 @@ messages and report downloaded counts/bytes. It includes the alpha 5 subject-for
   cleanup. Manual cleanup requires a preview and confirmation.
 - Compares a recovery point with the current source mailbox and selects missing/changed messages in bulk.
 - Restores selected items into a **new recovery folder**, using a separate restore application.
+- Rebuilds the entire saved email tree in an empty replacement mailbox, with progress and safe resume.
+- Optionally saves portable MIME copies and exports whole points or selected messages as EML ZIP.
 - Shows certificate expiry and prepares/tests replacements before switching authentication.
 - Encrypts exported items/manifests using AES-256-GCM, deduplicates unchanged content,
   and checks object integrity during verification and recovery.
@@ -48,11 +50,14 @@ Targets Global Microsoft 365, QTS 5.2+, and Intel/AMD 64-bit QNAP with Container
 The portable container targets Linux amd64 initially. No online archive mailboxes, public
 folders, contacts/calendars/tasks, SharePoint/OneDrive/Teams, mailbox rules, permissions, holds,
 or tenant configuration. Only folders whose class is `IPF.Note` are selected; excluded folder
-types are reported in the recovery API. No PST/EML export or full mailbox rollback.
+types are reported in the recovery API. No native PST generator or in-place mailbox rollback.
+EML export requires MIME saved with that point. For classic Outlook bulk/PST recovery, restore
+to Exchange and export from Outlook; see the [recovery guide](docs/MAILBOX-RECOVERY.md).
 
 Recovery points represent a completed traversal over an interval, not an atomic server-wide
 instant. The alpha keeps manifests in memory; large-mailbox capacity has not been established.
-Up to 100 configured mailboxes and 1,000 selected messages per restore operation are supported.
+Up to 100 configured mailboxes and 1,000 selected messages per selective restore/export are supported.
+Whole-mailbox recovery/export has no selection-count limit; practical memory/storage limits still apply.
 There is no automatic second-NAS replication or monitoring of that second copy yet.
 
 Automated fake-data tests verify local behavior; they do **not** establish live Exchange fidelity

@@ -19,6 +19,15 @@ def signature(value):
 def ordered_folders(manifest):
     folders = manifest["folders"]
     excluded = {f["id"] for f in manifest.get("excluded_folders", [])}
+    # The structural mailbox root can be non-email and therefore excluded.
+    source_root = next(
+        (
+            f["metadata"].get("parentFolderId")
+            for f in folders.values()
+            if (f["metadata"].get("wellKnownName") or "").lower() == "inbox"
+        ),
+        None,
+    )
     ordered, visited = [], set()
     for fid in sorted(folders):
         chain, active = [], set()
@@ -29,7 +38,7 @@ def ordered_folders(manifest):
             active.add(current)
             chain.append(current)
             current = folders[current]["metadata"].get("parentFolderId")
-        if current in excluded:
+        if current in excluded and current != source_root:
             raise ValueError("An email folder has an unsupported parent; use selected-message recovery")
         for key in reversed(chain):
             visited.add(key)
@@ -153,7 +162,7 @@ class MailboxRecovery:
             "snapshot_id": snapshot_id,
             "destination": destination,
             "target_mailbox": target,
-            "manifest_digest": signature(manifest),
+            "manifest_digest": self.repo.manifest_digest(snapshot_id),
             "folders": operations,
             "count": sum(len(f["items"]) for f in manifest["folders"].values()),
             "mode": "replacement_mailbox",
@@ -232,7 +241,7 @@ class MailboxRecovery:
                 if graph.mailbox_id(plan["destination"]) != plan["target_mailbox"]:
                     raise ValueError("The destination mailbox identity has changed")
                 manifest = self.repo.manifest(plan["snapshot_id"])
-                if signature(manifest) != plan["manifest_digest"]:
+                if self.repo.manifest_digest(plan["snapshot_id"]) != plan["manifest_digest"]:
                     raise ValueError("The saved recovery manifest changed")
                 self._verify(manifest)
                 # Validate existing folders and counts before any resumed writes.

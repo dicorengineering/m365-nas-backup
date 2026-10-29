@@ -107,12 +107,15 @@ class Repository:
             raise ValueError("Backup object checksum mismatch")
         return data
 
-    def manifest(self, snapshot_id: str) -> dict:
+    def manifest_digest(self, snapshot_id: str) -> str:
         with self.db() as db:
             row = db.execute("SELECT manifest FROM snapshots WHERE id=?", (snapshot_id,)).fetchone()
         if row is None:
             raise KeyError("Snapshot not found")
-        manifest = json.loads(self.get(row["manifest"]))
+        return row["manifest"]
+
+    def manifest(self, snapshot_id: str) -> dict:
+        manifest = json.loads(self.get(self.manifest_digest(snapshot_id)))
         if manifest.get("schema") != 1:
             raise ValueError("Unsupported snapshot format")
         return manifest
@@ -154,10 +157,17 @@ class Repository:
                 "UPDATE attempts SET status='failed',completed=?,error='interrupted' WHERE status='running'",
                 (utcnow(),),
             )
-            db.execute(
-                "UPDATE restores SET status='uncertain',result='Process stopped; inspect destination before retry' "
-                "WHERE status='running'"
-            )
+            for row in db.execute("SELECT id,result FROM restores WHERE status='running'").fetchall():
+                try:
+                    result = json.loads(row["result"] or "null")
+                except ValueError:
+                    result = None
+                if isinstance(result, dict) and result.get("mode") == "replacement_mailbox":
+                    result.update(status="uncertain", error="interrupted; inspect destination before retry")
+                    value = json.dumps(result)
+                else:
+                    value = "Process stopped; inspect destination before retry"
+                db.execute("UPDATE restores SET status='uncertain',result=? WHERE id=?", (value, row["id"]))
 
     def commit(self, job: str, manifest: dict) -> str:
         # Blob and encrypted manifest writes finish before the catalog pointer commits.

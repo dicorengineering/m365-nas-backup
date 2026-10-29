@@ -5,7 +5,7 @@ mailbox, plus an export usable with classic Outlook for Windows. Continue this a
 Keep repository/package PRIVATE. No NAS deployment, tenant changes or real-mail restore.
 Continuation automation remains PAUSED. No subagents.
 
-Implemented, not released:
+Implemented; preparing alpha7 release build, not yet published:
 - Whole-mailbox preview/confirm, standard folder identity mapping and custom hierarchy.
   Empty, separately configured replacement identity required; source can be gone.
   Durable per-write journal, explicit safe resume, uncertain writes blocked after restart.
@@ -20,7 +20,8 @@ Implemented, not released:
 
 Validation so far: original83 tests pass;16 new whole-mailbox tests pass (including1002 imports,
 resume/no duplicates, uncertain restart and retention pin);19 MIME/export tests pass.
-Ruff fixes applied. Need finish browser coverage, full suite, docs, alpha7 version bump and CI.
+Ruff and JS syntax pass. Browser coverage, docs and alpha7 version bump are ready.
+Next push the final release build and inspect CI, Docker/private pull and screenshot artifacts.
 Do not push a running release build with alpha6 tag: it is already published. Work checkpoints
 use [skip ci]; final release code must bump every package/image reference to alpha7 first.
 

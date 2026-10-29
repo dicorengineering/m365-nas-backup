@@ -44,6 +44,7 @@ Create another single-tenant registration, for example "M365 NAS Restore":
 | `User.Read.All` | Resolve the destination mailbox |
 | `MailboxFolder.ReadWrite.All` | Create recovery folders |
 | `MailboxItem.ImportExport.All` | Create import sessions/import saved items |
+| `MailboxItem.Read.All` | Whole-mailbox recovery: read destination items if folder counts are omitted |
 
 4. Enter its client ID in **Restore application ID**.
 5. Enable restoration when ready to test. Keep the first app ID for backups.
@@ -100,3 +101,21 @@ valid. Never replace encryption.key. Private keys and tokens are never downloade
 - [Import sequence](https://learn.microsoft.com/en-us/graph/import-exchange-mailbox-item)
 
 Verified against official documentation during alpha development, 2026-10-25.
+
+## Optional portable EML capture (alpha 7)
+
+For **Save MIME copies for EML exports**, add Microsoft Graph **Application Mail.Read** to
+the **backup** registration and grant administrator consent. Keep its existing permissions;
+Mail.Read does not replace MailboxItem.Export.All. User.Read.All already granted above is
+also used to translate exact message IDs. The restore app does not need Mail.Read for EML.
+
+Do this before enabling portable copies in Settings. The next successful backup captures
+current message MIME, including unchanged messages; old recovery points remain unchanged.
+Tenant consent/scoping is an administrator task and is not automated by this application.
+See [portable-copy instructions](MAILBOX-RECOVERY.md#save-portable-copies-for-future-eml-export),
+[Graph message MIME](https://learn.microsoft.com/en-us/graph/api/message-get?view=graph-rest-1.0)
+and [ID translation permissions](https://learn.microsoft.com/en-us/graph/api/user-translateexchangeids?view=graph-rest-1.0).
+
+For whole-mailbox recovery, destination folder reads use the existing folder permission.
+MailboxItem.Read.All allows the emptiness/count fallback when Microsoft omits folder counts.
+Existing selected-message restoration otherwise keeps its existing permissions.

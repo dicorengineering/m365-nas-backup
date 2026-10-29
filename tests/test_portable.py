@@ -245,3 +245,31 @@ def test_export_api_requires_admin_and_serves_zip(portable):
         client.headers["Authorization"] = "Bearer " + config.token()
         assert client.post("/api/exports/" + export_id + "/delete", json={}).status_code == 200
         assert client.get("/api/exports/" + export_id + "/download").status_code == 404
+
+
+def test_startup_cleans_only_our_partial_exports(portable):
+    _, _, _, _, _, service = portable
+    service.directory.mkdir()
+    partial = service.directory / ("a" * 32 + ".partial")
+    unrelated = service.directory / "unrelated.partial"
+    partial.write_bytes(b"unfinished plaintext")
+    unrelated.write_bytes(b"not owned by the export manager")
+    service.cleanup_interrupted()
+    assert not partial.exists()
+    assert unrelated.exists()
+
+
+def test_selected_export_and_confirmation_are_bound(portable):
+    _, repo, _, _, sid, service = portable
+    manifest = repo.manifest(sid)
+    manifest["folders"]["inbox"]["items"]["no-mime"] = {
+        k: v for k, v in manifest["folders"]["inbox"]["items"]["one"].items() if k != "mime_blob"
+    }
+    sid = repo.commit(repo.begin("test@example.com"), manifest)
+    selections = [{"folder_id": "inbox", "item_id": "one"}]
+    plan = service.preview(sid, selections)
+    assert plan["count"] == 1 and plan["missing_mime"] == 0
+    with pytest.raises(ValueError, match="plan changed"):
+        service.create(sid, None, plan["confirmation"])
+    assert service.create(sid, selections, plan["confirmation"])["messages"] == 1
+    assert service.preview(sid)["missing_mime"] == 1

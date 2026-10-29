@@ -52,3 +52,20 @@ intact. Retention removes only eligible points and unreferenced objects.
 Imports/folder creation are non-idempotent. Timeout or ambiguous success is recorded as uncertain,
 without an automatic retry that could duplicate mail.
 Complete [acceptance](ACCEPTANCE.md) before treating these mechanisms as operational protection.
+
+## Alpha 7 whole-mailbox and portable-copy additions (2026-10-29)
+
+Whole-mailbox recovery maps standard folders using the locale-independent wellKnownName,
+preserves custom hierarchy and requires an empty replacement mailbox. See
+[mailboxFolder properties](https://learn.microsoft.com/en-us/graph/api/resources/mailboxfolder?view=graph-rest-1.0).
+
+The opaque Exchange stream is still the server-restore source. Portable copies are a separate,
+optional capture using Binary 0x0FFF (MAPI EntryID), translateExchangeIds to restId, then the
+message /$value endpoint. ChangeKey is checked before and after to avoid saving current MIME
+as a different historical version. No subject-based identity matching is used.
+These API contracts are documented; this exact bridge still needs real-tenant acceptance.
+If the property/translation/MIME endpoint fails, the backup is not published as complete.
+
+MIME is saved encrypted with the completed point, so later EML export is offline and does not
+substitute current mail for old versions. Native PST generation on the NAS is not implemented.
+Classic Outlook can produce a PST after Exchange restoration and full synchronization.

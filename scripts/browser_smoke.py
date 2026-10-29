@@ -1,8 +1,10 @@
 """Browser acceptance on temporary fake mail. Screenshots contain no real data."""
 
+import copy
 import socket
 import threading
 import time
+import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -17,6 +19,52 @@ from m365_nas_backup.repository import Repository
 from tests.conftest import FakeGraph
 
 
+class RecoveryGraph(FakeGraph):
+    def __init__(self):
+        super().__init__()
+        self.target_folders = [
+            {
+                "id": "target-inbox",
+                "displayName": "Inbox",
+                "parentFolderId": "target-root",
+                "wellKnownName": "inbox",
+                "type": "IPF.Note",
+                "totalItemCount": 0,
+            }
+        ]
+
+    def folders(self, mailbox_id):
+        if mailbox_id == "MBX:replacement@example.com":
+            return copy.deepcopy(self.target_folders)
+        return [
+            {**f, "wellKnownName": "inbox", "parentFolderId": "source-root"}
+            for f in super().folders(mailbox_id)
+        ]
+
+    def mime(self, *args):
+        return b"From: demo@example.com\r\nSubject: Invoice\r\n\r\nSynthetic portable message\r\n"
+
+    def create_folder(self, mailbox_id, name, parent=None):
+        fid = super().create_folder(mailbox_id, name, parent)
+        if mailbox_id == "MBX:replacement@example.com":
+            self.target_folders.append(
+                {
+                    "id": fid,
+                    "displayName": name,
+                    "parentFolderId": parent,
+                    "type": "IPF.Note",
+                    "totalItemCount": 0,
+                }
+            )
+        return fid
+
+    def import_item(self, mailbox_id, folder_id, content):
+        result = super().import_item(mailbox_id, folder_id, content)
+        if mailbox_id == "MBX:replacement@example.com":
+            next(f for f in self.target_folders if f["id"] == folder_id)["totalItemCount"] += 1
+        return result
+
+
 def main():
     output = Path("build/browser")
     output.mkdir(parents=True, exist_ok=True)
@@ -24,15 +72,28 @@ def main():
         root = Path(temporary)
         config = Configuration(root / "config")
         certificates(config)
-        config.save(Settings(mailboxes=[Mailbox(user="demo@example.com")], minimum_free_gb=0.1))
+        config.save(
+            Settings(
+                mailboxes=[
+                    Mailbox(user="demo@example.com"),
+                    Mailbox(user="replacement@example.com", enabled=False),
+                ],
+                minimum_free_gb=0.1,
+                portable_email_enabled=True,
+            )
+        )
         repo = Repository(root / "data", config.secret("encryption.key"))
-        graph = FakeGraph()
+        graph = RecoveryGraph()
         engine = Engine(config, repo, factory=lambda *args, **kwargs: graph)
         engine.backup()
         listener = socket.socket()
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
-        server = uvicorn.Server(uvicorn.Config(create_app(config, repo, engine), log_level="error"))
+        server = uvicorn.Server(
+            uvicorn.Config(
+                create_app(config, repo, engine, exports_directory=root / "exports"), log_level="error"
+            )
+        )
         worker = threading.Thread(target=lambda: server.run(sockets=[listener]), daemon=True)
         worker.start()
         for _ in range(100):
@@ -110,6 +171,39 @@ def main():
                         break
                     time.sleep(0.05)
                 assert graph.imported[0][2] == b"original message with attachment"
+                page.locator("#replacement-mailbox").select_option("replacement@example.com")
+                page.get_by_role("button", name="Review whole-mailbox recovery", exact=True).click()
+                expect(page.locator("#review-title")).to_contain_text("Rebuild 1 messages")
+                expect(page.locator("#review-body")).to_contain_text("entire recovery point")
+                page.screenshot(path=str(output / "mailbox-review.png"), full_page=True)
+                page.get_by_role("button", name="Confirm", exact=True).click()
+                expect(page.get_by_role("status")).to_contain_text("Whole-mailbox recovery started")
+                for _ in range(100):
+                    if len(graph.imported) == 2:
+                        break
+                    time.sleep(0.05)
+                assert graph.imported[1][0:2] == ("MBX:replacement@example.com", "target-inbox")
+                page.locator("#refresh-recovery").click()
+                expect(page.locator("#recovery-jobs")).to_contain_text("success")
+                expect(page.locator("#recovery-jobs")).to_contain_text("1 / 1 messages")
+                page.get_by_role("button", name="Export whole backup as EML ZIP", exact=True).click()
+                expect(page.locator("#review-body")).to_contain_text("unencrypted ZIP")
+                page.get_by_role("button", name="Confirm", exact=True).click()
+                expect(page.get_by_role("status")).to_contain_text("Export started")
+                for _ in range(100):
+                    if list((root / "exports").glob("*.zip")):
+                        break
+                    time.sleep(0.05)
+                page.locator("#refresh-recovery").click()
+                with page.expect_download() as export_download:
+                    page.get_by_role("link", name="Download EML ZIP", exact=False).click()
+                with zipfile.ZipFile(export_download.value.path()) as archive:
+                    eml = next(n for n in archive.namelist() if n.endswith(".eml"))
+                    assert archive.read(eml) == graph.mime()
+                page.screenshot(path=str(output / "whole-recovery-export.png"), full_page=True)
+                page.get_by_role("button", name="Delete export", exact=True).click()
+                page.get_by_role("button", name="Confirm", exact=True).click()
+                expect(page.locator("#exports-list")).to_have_text("No completed exports.")
                 page.set_viewport_size({"width": 390, "height": 844})
                 page.screenshot(path=str(output / "mobile.png"), full_page=True)
                 page.get_by_role("button", name="Sign out").click()
@@ -122,7 +216,7 @@ def main():
                 assert not errors, errors
                 browser.close()
                 print(
-                    "Browser passed: account setup, password login/logout, session reload, daily schedule, recovery selection, optional comparison, restore confirmation."
+                    "Browser passed: account setup, password login/logout, session reload, daily schedule, recovery selection, optional comparison, selected restore, whole-mailbox recovery, EML download/delete."
                 )
         finally:
             server.should_exit = True
