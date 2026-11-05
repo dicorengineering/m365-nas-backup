@@ -53,6 +53,64 @@ def api(url):
     return json.loads(fetch(url))
 
 
+def debian_mirror_sources(image, pairs):
+    """Use APT's signed source indexes first; snapshot is the exact-version fallback."""
+    code = """
+import json, subprocess
+from pathlib import Path
+for p in Path('/etc/apt/sources.list.d').glob('*.sources'):
+    p.write_text(p.read_text().replace('Types: deb\\n', 'Types: deb deb-src\\n'))
+subprocess.run(['apt-get', 'update', '-qq'], check=True)
+pairs=json.loads(Path('/sources/debian-request.json').read_text())
+results=[]
+for name, version in pairs:
+    directory=Path('/sources/debian') / name
+    directory.mkdir(parents=True, exist_ok=True)
+    completed=subprocess.run(
+        ['apt-get', 'source', '--download-only', '--only-source', name+'='+version],
+        cwd=directory, capture_output=True, text=True)
+    print('Debian mirror source: '+name+' '+('downloaded' if completed.returncode==0 else 'use archive'), flush=True)
+    if completed.returncode==0:
+        results.append([name, version])
+Path('/sources/debian-mirror.json').write_text(json.dumps(results))
+"""
+    (ROOT / "debian-request.json").write_text(json.dumps(pairs))
+    subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--user",
+            "0",
+            "--entrypoint",
+            "python",
+            "--volume",
+            str(ROOT.resolve()) + ":/sources",
+            image,
+            "-c",
+            code,
+        ],
+        check=True,
+    )
+    completed = {tuple(pair) for pair in json.loads((ROOT / "debian-mirror.json").read_text())}
+    for name, version in sorted(completed):
+        for path in sorted((ROOT / "debian" / name).iterdir()):
+            if path.is_file():
+                with path.open("rb") as stream:
+                    digest = hashlib.file_digest(stream, "sha256").hexdigest()
+                INDEX.append(
+                    {
+                        "path": path.relative_to(ROOT).as_posix(),
+                        "package": name,
+                        "version": version,
+                        "ecosystem": "debian",
+                        "sha256": digest,
+                        "verification": "APT verified signed Debian source index and exact source version",
+                    }
+                )
+    return [pair for pair in pairs if pair not in completed]
+
+
 def debian_source(pair):
     name, version = pair
     url = (
@@ -62,6 +120,7 @@ def debian_source(pair):
         + quote(version, safe="")
         + "/srcfiles"
     )
+    print("Debian archive source: " + name + " " + version, flush=True)
     hashes = api(url)["result"]
     if not hashes:
         raise ValueError("Missing Debian source: " + name + " " + version)
@@ -130,7 +189,8 @@ def main():
         subprocess.run(["docker", "rm", container], check=True, stdout=subprocess.DEVNULL)
     inventory = json.loads((ROOT / "notices/inventory.json").read_text())
     pairs = sorted({(p["source"], p["source_version"]) for p in inventory["debian_packages"]})
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+    pairs = debian_mirror_sources(image, pairs)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         for records in pool.map(debian_source, pairs):
             INDEX.extend(records)
             print("Collected Debian source: " + records[0]["package"], flush=True)
