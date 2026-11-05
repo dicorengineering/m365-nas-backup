@@ -4,6 +4,10 @@ LABEL org.opencontainers.image.source="https://github.com/dicorengineering/m365-
       org.opencontainers.image.title="M365 NAS Backup" \
       org.opencontainers.image.description="AI-written experimental Exchange backup; see bundled license and disclaimer."
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+# Keep timezone data aligned with the current signed Debian source index.
+RUN apt-get update -qq \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --only-upgrade tzdata \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY requirements.txt pyproject.toml README.md LICENSE DISCLAIMER.md THIRD_PARTY_NOTICES.md ./
 RUN pip install --no-cache-dir -r requirements.txt
