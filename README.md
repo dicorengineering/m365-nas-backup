@@ -17,7 +17,10 @@ an independent, verified backup. Provided **as is, without warranty** under the
 
 ## Start here
 
-**[Install with docker pull](docs/REGISTRY-INSTALL.md)** — preferred for QNAP.
+**[Installation and upgrade instructions](docs/REGISTRY-INSTALL.md)**.
+The [public alpha 8 installer](https://github.com/dicorengineering/m365-nas-backup/releases/tag/v0.1.0-alpha.8)
+downloads without a GitHub login. Anonymous registry pulls still require the owner to make
+the separate container package public; the release's registry report records its visibility.
 
 Docker alpha 8 adds public distribution, MIT licensing, bundled dependency notices and an
 About/licensing page. It preserves alpha 7's whole-mailbox recovery directly into an empty replacement mailbox,
@@ -25,8 +28,9 @@ durable restore progress with safe manual resume, and optional saved MIME copies
 EML ZIP exports. It retains password sign-in, daily/12-hour scheduling and incremental backups.
 [Upgrade instructions](docs/REGISTRY-INSTALL.md#upgrade-an-existing-container-station-application-to-alpha-8)
 and [whole-mailbox/Outlook instructions](docs/MAILBOX-RECOVERY.md).
-[Alpha 7 passed release checks](https://github.com/dicorengineering/m365-nas-backup/actions/runs/40829876473):
-126 tests on Python3.12/3.13, browser workflows, Docker resource/persistence checks and private registry pull.
+[Alpha 8 passed release checks](https://github.com/dicorengineering/m365-nas-backup/actions/runs/41988727393):
+126 tests on Python3.12/3.13, browser workflows, dependency audit, Docker 24 import,
+resource/persistence checks and an authenticated registry pull matching the tested image.
 These are synthetic checks; real tenant/NAS/Outlook acceptance remains necessary.
 
 - **QNAP users:** [Installation and first access](docs/QNAP-INSTALL.md)

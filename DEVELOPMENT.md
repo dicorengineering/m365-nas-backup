@@ -1,31 +1,47 @@
-# Restart checkpoint: public alpha 8 in preparation
+# Restart checkpoint: public alpha 8 delivered
 
 Updated 2026-11-05. The owner explicitly authorized public publication and chose MIT.
 Read AGENTS.md and inspect Git state. Do not spawn subagents without an explicit request.
 Do not deploy to a NAS, modify a tenant or restore real mail without user direction.
 The continuation automation remains PAUSED; do not resume or duplicate it.
 
-## Current work
+## Delivered public release
 
-Alpha 8 adds MIT metadata, AI/alpha disclaimers, an About page, contribution/security
-guidance, bundled dependency notices and corresponding-source release assets.
-Backup and restore logic, ports, volumes and the 512 MiB/one-CPU defaults are unchanged.
-Docker only; the QPKG wrapper is retired.
+Repository is PUBLIC, GitHub recognizes MIT, private vulnerability reporting enabled.
+Alpha 8 source: 46e452cd8ea66f122c17a8783345aa9757e4f629
+Image: ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.8
+Digest: sha256:37b5c2d44ef891fc092a4bed0299c54f3562f58778ad155aadf00b9a4c08faa3
+CI: https://github.com/dicorengineering/m365-nas-backup/actions/runs/41988727393
+Release: https://github.com/dicorengineering/m365-nas-backup/releases/tag/v0.1.0-alpha.8
 
-Local verification: 126 tests passed, Ruff lint/format passed, JavaScript syntax passed.
-Upstream notice bytes/checksums must remain intact; .gitattributes disables text conversion
-for third_party/licenses. Upstream whitespace/conflict-looking RST headings are intentional.
+MIT LICENSE, AI/alpha DISCLAIMER, About page, contribution/security guidance and third-party
+notices are included. Exact installed notices cover 28 Python distributions and 97 Debian
+packages. Separate corresponding-source archive is about 402 MB; installer ZIP about 65.5 MB.
+Upstream notice bytes are preserved with .gitattributes -text. Source collection uses signed
+Debian mirrors first, snapshot fallback; timezone data is refreshed at build to keep matching
+source available. Two initial source-archive packaging failures were fixed before delivery.
 
-Focused publication check: 245 historical Git blobs and all 18 existing Actions logs scanned
-for private keys and common credential patterns; no hits. No backup/config/database files
-found in tracked history. This is not an independent comprehensive security audit.
+126 tests passed locally and on Linux Python3.12/3.13. Ruff, JS, dependency audit, browser
+workflows, Docker24 archive import, Compose/persistence/Kuma and resource-limit checks passed.
+Actual authenticated pull matched tested image. Downloaded installer/member checksums and
+notice checksums verified; source archive checksum matches GitHub's uploaded-asset digest.
+Idle RSS70.21MiB, workload peak180.64MiB; container peak396435456bytes including cache, noOOM.
+No independent audit or live tenant/QNAP/Outlook acceptance. No NAS/tenant changes.
 
-Next: push source and make repository public; enable private vulnerability reporting.
-Inspect Linux/browser/Docker CI and dependency-source collection before publishing its
-draft release. Confirm anonymous repository/license access. Package visibility is separate:
-the local GitHub CLI cannot set it, and the available browser is not signed in.
-Do not claim anonymous Docker pull without verifying it. Public offline release downloads
-provide a no-login installation option while package visibility is pending.
+## Remaining owner action
+
+GHCR package is still PRIVATE; anonymous_pull_verified=false in the registry report.
+Repository association now correctly points to dicorengineering/m365-nas-backup.
+Asked owner to open https://github.com/users/dicorengineering/packages/container/package/m365-nas-backup
+then Package settings > Change visibility > Public. Available CLI cannot change package
+visibility; browser is not signed in. Public offline release provides no-login installation.
+If owner confirms the change, verify anonymous registry manifest/pull access and update
+README/registry instructions/release notes. Do not rebuild or overwrite alpha 8.
+No other feature work is authorized by the current publication task.
+
+Focused publication check scanned 245 historical Git blobs and all 18 pre-publication Actions
+logs for private keys/common credential patterns, with no hits; no tracked backup/config/data
+files. This is not a comprehensive security audit. Keep all secrets and real mail out of Git.
 
 ## Previous release and preserved behavior
 
