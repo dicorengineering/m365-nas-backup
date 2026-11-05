@@ -2,3 +2,4 @@
 *.png binary
 *.gif binary
 *.qpkg binary
+third_party/licenses/** -text

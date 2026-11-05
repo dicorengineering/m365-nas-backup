@@ -5,17 +5,25 @@ encrypted local storage, a recovery console, and Uptime Kuma monitoring.
 
 **Development alpha.** One lightweight Docker service for QNAP Container Station or a Linux
 Docker host. The package includes a prebuilt image and Compose file; no build or registry
-login is needed for offline installation. Private registry pulls are also supported. The earlier QPKG wrapper is retired. Each installation connects
+login is needed for offline installation. The earlier QPKG wrapper is retired. Each installation connects
 to one Microsoft 365 tenant; no organization-specific configuration is built in.
+
+**AI-written software.** Developed with OpenAI Codex. This experimental alpha may contain
+errors or security flaws and has not had an independent professional audit. Successful
+automated tests do not guarantee that your mail can be recovered. Test restores and keep
+an independent, verified backup. Provided **as is, without warranty** under the
+[MIT License](LICENSE). Read the [full disclaimer](DISCLAIMER.md) and
+[third-party licensing notices](THIRD_PARTY_NOTICES.md).
 
 ## Start here
 
 **[Install with docker pull](docs/REGISTRY-INSTALL.md)** — preferred for QNAP.
 
-Docker alpha 7 adds whole-mailbox recovery directly into an empty replacement mailbox,
+Docker alpha 8 adds public distribution, MIT licensing, bundled dependency notices and an
+About/licensing page. It preserves alpha 7's whole-mailbox recovery directly into an empty replacement mailbox,
 durable restore progress with safe manual resume, and optional saved MIME copies for offline
 EML ZIP exports. It retains password sign-in, daily/12-hour scheduling and incremental backups.
-[Upgrade instructions](docs/REGISTRY-INSTALL.md#upgrade-an-existing-container-station-application-to-alpha-7)
+[Upgrade instructions](docs/REGISTRY-INSTALL.md#upgrade-an-existing-container-station-application-to-alpha-8)
 and [whole-mailbox/Outlook instructions](docs/MAILBOX-RECOVERY.md).
 [Alpha 7 passed release checks](https://github.com/dicorengineering/m365-nas-backup/actions/runs/40829876473):
 126 tests on Python3.12/3.13, browser workflows, Docker resource/persistence checks and private registry pull.
@@ -86,4 +94,13 @@ CI tests Python 3.12/3.13, exercises the browser with fake mail, builds/smoke-te
 and checks the shipped Compose under a 512 MiB / one-CPU limit before packaging the image. Read [AGENTS.md](AGENTS.md) and
 [DEVELOPMENT.md](DEVELOPMENT.md) before continuing development.
 
-The repository remains private. Public release and an open-source license have not been approved.
+## License and support
+
+Application code: [MIT](LICENSE), copyright 2026 dicorengineering and contributors.
+Dependencies and container components retain their own licenses; matching release notices
+and source bundles are described in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Microsoft, QNAP, Docker and OpenAI do not endorse or support this project.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contributions and [SECURITY.md](SECURITY.md)
+for private vulnerability reporting. Do not include credentials or real mail in issues.
+There is no support SLA or guaranteed recovery.

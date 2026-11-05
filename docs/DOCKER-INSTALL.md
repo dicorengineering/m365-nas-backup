@@ -1,6 +1,6 @@
 # Portable Docker installation
 
-**Preferred: [pull from the private registry](REGISTRY-INSTALL.md).** This avoids the archive importer.
+**Preferred: [pull from the registry](REGISTRY-INSTALL.md).** This avoids the archive importer.
 The instructions below cover optional offline installation.
 
 Use the prebuilt **linux/amd64** package on a Docker Engine host with Compose.
@@ -8,14 +8,15 @@ QNAP users can follow the GUI procedure in [QNAP-INSTALL.md](QNAP-INSTALL.md).
 
 ## Install
 
-Download and unzip **M365Backup-0.1.0-alpha.7-docker-amd64** from the Artifacts section
-of a successful private **Test and build Docker alpha** Actions run.
+Download and unzip **M365Backup-0.1.0-alpha.8-docker-amd64.zip** from the
+[alpha 8 release](https://github.com/dicorengineering/m365-nas-backup/releases/tag/v0.1.0-alpha.8).
+No GitHub login is required. Read the included license and AI/alpha disclaimer.
 In that extracted directory:
 
 ```sh
 sha256sum -c SHA256SUMS
-docker load --input m365-nas-backup-0.1.0-alpha.7-amd64.tar.gz
-docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7 --format '{{.Architecture}} {{.Os}}'
+docker load --input m365-nas-backup-0.1.0-alpha.8-amd64.tar.gz
+docker image inspect ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.8 --format '{{.Architecture}} {{.Os}}'
 docker compose up -d --pull never
 docker compose exec backup cat /config/admin.token
 ```
@@ -87,7 +88,7 @@ repository or credentials directory between running services.
 On a build machine, check out the intended revision and run:
 
 ```sh
-docker build -t ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7 .
+docker build -t ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.8 .
 docker compose up -d --pull never
 ```
 

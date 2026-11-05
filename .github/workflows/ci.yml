@@ -44,36 +44,36 @@ jobs:
           retention-days: 30
   package:
     permissions:
-      contents: read
+      contents: write
       packages: write
     needs: test
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - name: Build portable container
-        run: docker build --tag ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.7 .
+      - name: Build portable container with licenses
+        run: docker build --tag ghcr.io/dicorengineering/m365-nas-backup:0.1.0-alpha.8 .
       - name: Export classic archive and test fresh import on Docker 24
         run: python3 -m scripts.package_image
       - name: Test shipped Compose, persistence and resource limits with synthetic mail
         run: python3 -m scripts.container_smoke
-      - name: Publish private image and verify registry pull
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      - name: Collect exact dependency sources and notices
+        run: python3 -m scripts.collect_sources
+      - name: Publish image and verify registry pull
+        if: github.repository == 'dicorengineering/m365-nas-backup' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 -m scripts.publish_image
       - name: Bundle prebuilt image and instructions
-        run: |
-          mkdir -p dist/docs
-          cp compose.yaml dist/
-          cp packaging/INSTALL.md dist/INSTALL.md
-          cp docs/*.md dist/docs/
-          cp build/*-report.json dist/
-          printf '%s\n' "${{ github.sha }}" > dist/SOURCE-COMMIT.txt
-          (cd dist && sha256sum *.tar.gz compose.yaml INSTALL.md *-report.json SOURCE-COMMIT.txt docs/*.md > SHA256SUMS)
+        run: python3 -m scripts.bundle_release
       - uses: actions/upload-artifact@v4
         with:
-          name: M365Backup-0.1.0-alpha.7-docker-amd64
-          path: dist/
+          name: M365Backup-0.1.0-alpha.8-docker-amd64
+          path: dist/release/
           retention-days: 90
           if-no-files-found: error
+      - name: Prepare draft release for review
+        if: github.repository == 'dicorengineering/m365-nas-backup' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create v0.1.0-alpha.8 --draft --prerelease --target "$GITHUB_SHA" --title "M365 NAS Backup 0.1.0-alpha.8" --notes-file RELEASE_NOTES.md dist/release/*

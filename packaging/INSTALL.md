@@ -1,6 +1,6 @@
 # M365 NAS Backup — Docker installation
 
-Prefer [private registry pull](docs/REGISTRY-INSTALL.md) to avoid the archive importer.
+Prefer [registry pull](docs/REGISTRY-INSTALL.md) to avoid the archive importer.
 
 For offline use, start with [QNAP installation](docs/QNAP-INSTALL.md) or
 [Linux Docker installation](docs/DOCKER-INSTALL.md).
@@ -17,4 +17,6 @@ resource-report.json contains that build's synthetic test measurements.
 import-report.json records the archive format and fresh import/startup checks.
 The archive uses the classic Docker format for NAS importer compatibility.
 
-This is a private development alpha. Physical NAS and live Microsoft acceptance remain required.
+This is AI-written experimental software, provided as is without warranty under the MIT
+license. Read LICENSE, DISCLAIMER.md and THIRD_PARTY_NOTICES.md. Keep an independent
+verified backup. Physical NAS and live Microsoft acceptance remain required.

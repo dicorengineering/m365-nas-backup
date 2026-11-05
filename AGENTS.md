@@ -3,7 +3,7 @@
 Read DEVELOPMENT.md at the start of every continuation. Inspect Git status before editing.
 This is a general-purpose, single-tenant-per-installation app, not a DiCor-specific product.
 
-- Keep GitHub private until the human explicitly authorizes publication.
+- Public publication under MIT was explicitly authorized by the owner in November 2026. Preserve licensing and AI/alpha disclosures.
 - Never commit credentials, certificates' private keys, tokens, real mail, local config, or backup data.
 - Develop and test locally with generated/fake fixtures; do not change a real Microsoft tenant or NAS without authorization.
 - Preserve immutable completed snapshots. Never advance durable delta tokens for incomplete backup runs.

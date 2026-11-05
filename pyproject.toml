@@ -1,13 +1,28 @@
 [build-system]
-requires = ["setuptools>=75"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "m365-nas-backup"
-version = "0.1.0a7"
-description = "Versioned Exchange Online backup for QNAP"
+version = "0.1.0a8"
+description = "Self-hosted, versioned Exchange Online email backup"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "DISCLAIMER.md", "THIRD_PARTY_NOTICES.md"]
+authors = [{name = "dicorengineering and contributors"}]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Archiving :: Backup",
+]
+
 requires-python = ">=3.12"
 dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1", "msal>=1.31,<2", "cryptography>=44", "filelock>=4.2.4,<5"]
+
+[project.urls]
+Repository = "https://github.com/dicorengineering/m365-nas-backup"
+Issues = "https://github.com/dicorengineering/m365-nas-backup/issues"
+Documentation = "https://github.com/dicorengineering/m365-nas-backup/blob/main/README.md"
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "ruff>=0.9,<1", "pip-audit>=2.8,<3"]
